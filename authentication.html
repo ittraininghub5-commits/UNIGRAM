@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unigram Auth</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=DM+Sans&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co'
+const SUPABASE_ANON_KEY = 'your-anon-key-here'
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+</script>
+
+<style>
+:root {
+--bg-base:#080C18;
+--bg-card:#141C2E;
+--bg-elevated:#1A2340;
+--accent:#00D9A0;
+--text-primary:#EEF2FF;
+--text-secondary:#8892A4;
+--border:rgba(255,255,255,0.08);
+}
+
+body {
+font-family:'DM Sans';
+background:var(--bg-base);
+color:var(--text-primary);
+display:flex;
+justify-content:center;
+align-items:center;
+min-height:100vh;
+}
+
+.wrapper { max-width:420px; width:100%; }
+
+.logo { text-align:center; margin-bottom:30px; }
+.logo span { color:var(--accent); }
+
+.tabs {
+display:flex;
+background:var(--bg-card);
+padding:4px;
+border-radius:12px;
+margin-bottom:20px;
+}
+.tabs button {
+flex:1;
+padding:10px;
+border:none;
+background:none;
+color:var(--text-secondary);
+cursor:pointer;
+border-radius:8px;
+}
+.tabs button.active {
+background:var(--bg-elevated);
+color:white;
+}
+
+.card {
+background:var(--bg-card);
+padding:30px;
+border-radius:18px;
+border:1px solid var(--border);
+}
+
+input {
+width:100%;
+padding:12px;
+margin:6px 0 14px;
+border-radius:10px;
+border:1px solid var(--border);
+background:var(--bg-elevated);
+color:white;
+}
+
+.btn {
+width:100%;
+padding:12px;
+background:var(--accent);
+border:none;
+border-radius:10px;
+cursor:pointer;
+}
+
+.google {
+margin-top:10px;
+width:100%;
+padding:10px;
+border-radius:10px;
+background:var(--bg-elevated);
+border:1px solid var(--border);
+cursor:pointer;
+}
+
+.forgot {
+text-align:right;
+font-size:12px;
+color:var(--accent);
+cursor:pointer;
+margin-bottom:10px;
+}
+
+.footer {
+text-align:center;
+margin-top:10px;
+font-size:13px;
+}
+.footer a { color:var(--accent); cursor:pointer; }
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+<div class="logo">
+<h1>Uni<span>gram</span></h1>
+<p>Your professional learning platform</p>
+</div>
+
+<div class="tabs">
+<button class="active" onclick="switchTab('login', this)">Sign In</button>
+<button onclick="switchTab('signup', this)">Create Account</button>
+</div>
+
+<!-- LOGIN -->
+<div id="login-box" class="card">
+
+<h2>Welcome back</h2>
+<p>Sign in to your account</p>
+
+<input id="login-email" type="email" placeholder="Email">
+<input id="login-password" type="password" placeholder="Password">
+
+<div class="forgot" onclick="forgotPassword()">Forgot password?</div>
+
+<button class="btn" onclick="loginUser()">Login →</button>
+
+<button class="google" onclick="loginWithGoogle()">🌐 Sign in with Google</button>
+
+<div class="footer">
+New to Unigram? <a onclick="switchToSignup()">Create account</a>
+</div>
+
+</div>
+
+<!-- SIGNUP -->
+<div id="signup-box" class="card" style="display:none">
+
+<h2>Create Account</h2>
+
+<input id="reg-name" type="text" placeholder="Name">
+<input id="reg-email" type="email" placeholder="Email">
+<input id="reg-password" type="password" placeholder="Password">
+<input id="reg-confirm" type="password" placeholder="Confirm Password">
+
+<button class="btn" onclick="registerUser()">Sign Up</button>
+
+<button class="google" onclick="loginWithGoogle()">🌐 Sign in with Google</button>
+
+<div class="footer">
+Already have an account? <a onclick="switchToLogin()">Login</a>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+// TAB SWITCH
+function switchTab(type, el){
+document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'))
+el.classList.add('active')
+
+document.getElementById('login-box').style.display = type==='login'?'block':'none'
+document.getElementById('signup-box').style.display = type==='signup'?'block':'none'
+}
+
+function switchToSignup(){ document.querySelectorAll('.tabs button')[1].click() }
+function switchToLogin(){ document.querySelectorAll('.tabs button')[0].click() }
+
+// LOGIN
+async function loginUser(){
+const email=document.getElementById('login-email').value
+const password=document.getElementById('login-password').value
+
+const {error}=await supabase.auth.signInWithPassword({email,password})
+
+if(error){ alert(error.message); return }
+
+alert("Logged in!")
+window.location="index.html"
+}
+
+// REGISTER
+async function registerUser(){
+const name=document.getElementById('reg-name').value
+const email=document.getElementById('reg-email').value
+const password=document.getElementById('reg-password').value
+const confirm=document.getElementById('reg-confirm').value
+
+if(password!==confirm){ alert("Passwords do not match"); return }
+
+const {error}=await supabase.auth.signUp({
+email,
+password,
+options:{data:{full_name:name}}
+})
+
+if(error){ alert(error.message); return }
+
+alert("Account created!")
+}
+
+// GOOGLE
+async function loginWithGoogle(){
+await supabase.auth.signInWithOAuth({
+provider:'google',
+options:{redirectTo:window.location.origin}
+})
+}
+
+// FORGOT PASSWORD
+async function forgotPassword(){
+const email=document.getElementById('login-email').value
+if(!email){ alert("Enter email first"); return }
+
+const {error}=await supabase.auth.resetPasswordForEmail(email,{
+redirectTo:window.location.origin
+})
+
+if(error){ alert(error.message); return }
+
+alert("Reset link sent!")
+}
+
+</script>
+
+</body>
+</html>

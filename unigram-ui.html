@@ -7,6 +7,30 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+
+<script>
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co'
+const SUPABASE_ANON_KEY = 'your-anon-key-here'
+const { createClient } = window.supabase
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    await supabase.from('login_logs').insert({
+      user_id: session.user.id,
+      provider: session.user.app_metadata.provider || 'magic_link'
+    })
+    showToast('Welcome to Unigram! 🎉', '🚀')
+    showPage('feed')
+  }
+  if (event === 'SIGNED_OUT') {
+    showPage('landing')
+  }
+})
+</script>
 <style>
   :root {
     --bg-base: #080C18;
@@ -534,103 +558,7 @@
   .cta-desc { font-size: 16px; color: var(--text-secondary); margin-bottom: 32px; }
   .cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
-  /* ═══════════════════════════════════════
-     PAGE 2: AUTH
-  ═══════════════════════════════════════ */
-  #page-auth {
-    min-height: calc(100vh - 64px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 24px;
-  }
-  .auth-wrapper {
-    width: 100%;
-    max-width: 440px;
-  }
-  .auth-tabs {
-    display: flex;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 4px;
-    margin-bottom: 28px;
-  }
-  .auth-tab {
-    flex: 1;
-    padding: 10px;
-    border-radius: 9px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-family: var(--font-body);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .auth-tab.active { background: var(--bg-elevated); color: var(--text-primary); }
-  .auth-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 36px;
-  }
-  .auth-title { font-family: var(--font-display); font-size: 24px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; }
-  .auth-subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 28px; }
-  .form-group { margin-bottom: 16px; }
-  .role-selector {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 6px;
-  }
-  .role-opt {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-    background: var(--bg-elevated);
-  }
-  .role-opt:hover { border-color: var(--accent-teal); }
-  .role-opt.selected { border-color: var(--accent-teal); background: var(--accent-teal-dim); }
-  .role-opt.selected.mentor { border-color: var(--accent-purple); background: var(--accent-purple-dim); }
-  .role-opt-icon { font-size: 24px; display: block; margin-bottom: 6px; }
-  .role-opt-label { font-size: 12px; font-weight: 600; font-family: var(--font-display); }
-  .role-opt-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-  .divider-text {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 20px 0;
-    color: var(--text-muted);
-    font-size: 12px;
-  }
-  .divider-text::before, .divider-text::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  .auth-footer { text-align: center; font-size: 13px; color: var(--text-secondary); margin-top: 20px; }
-  .auth-footer a { color: var(--accent-teal); text-decoration: none; cursor: pointer; }
-  .otp-inputs {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin: 20px 0;
-  }
-  .otp-input {
-    width: 52px; height: 56px;
-    text-align: center;
-    font-size: 20px;
-    font-family: var(--font-display);
-    font-weight: 700;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--text-primary);
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .otp-input:focus { border-color: var(--accent-teal); }
+ 
 
   /* ═══════════════════════════════════════
      PAGE 3: STUDENT FEED
@@ -1203,7 +1131,9 @@
       <button class="nav-link" onclick="showPage('messages', this)" id="nav-messages">💬 Messages</button>
       <button class="nav-link" onclick="showPage('profile', this)" id="nav-profile">👤 Profile</button>
       <button class="nav-link" onclick="showPage('mentor', this)" id="nav-mentor">Dashboard</button>
-      <button class="btn-nav" onclick="showPage('auth')">Sign In</button>
+      <a href="authentication.html">
+  <button class="btn-nav">Sign In</button>
+</a>
     </div>
   </div>
 </nav>
@@ -1226,8 +1156,8 @@
       <p class="hero-desc anim anim-d3">
         Unigram bridges the gap between education, mentorship, and employability — combining short-form learning with verified credentials and trusted recommendations.
       </p>
-      <div class="hero-actions anim anim-d4">
-        <button class="btn-primary" onclick="showPage('auth')">Get Started Free</button>
+     <div class="hero-actions anim anim-d4">
+  <button class="btn-primary" onclick="window.location.href='authentication.html'">Get Started Free</button>
         <button class="btn-outline" onclick="showPage('feed')">Explore Feed →</button>
       </div>
       <div class="hero-stats anim anim-d4">
@@ -1377,7 +1307,7 @@
     <!-- Row 1: Competitor problems -->
     <div style="display:grid; grid-template-columns: repeat(3,1fr); gap:16px; margin-bottom: 0;">
       <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:22px;">
-        <span class="badge badge-amber" style="margin-bottom:12px; display:inline-block;">YouTube / TikTok</span>
+        <span class="badge badge-amber" style="margin-bottom:12px; display:inline-block;">YouTube </span>
         <div style="font-family:var(--font-display); font-size:15px; font-weight:700; margin-bottom:8px;">No credibility</div>
         <p style="font-size:13px; color:var(--text-secondary); line-height:1.65;">Anyone can post anything. You can't tell if a mentor actually knows what they're teaching. No way to verify if a student actually learned.</p>
       </div>
@@ -1454,7 +1384,9 @@
       <h2 class="cta-title">Social becomes credible.<br>Learning becomes social.</h2>
       <p class="cta-desc">Join thousands of students and mentors already building the future on Unigram.</p>
       <div class="cta-actions">
-        <button class="btn-primary" onclick="showPage('auth')">Create Free Account</button>
+        <a href="authentication.html">
+  <button class="btn-nav">Sign In</button>
+</a>
         <button class="btn-outline" onclick="showPage('mentor')">See Mentor Dashboard</button>
       </div>
     </div>
@@ -1469,167 +1401,8 @@
   </footer>
 </div>
 
-<!-- ══════════════════════════════════════
-     PAGE: AUTH
-══════════════════════════════════════ -->
-<div id="page-auth" class="page">
-  <div id="auth-step-1" style="min-height: calc(100vh - 64px); display:flex; align-items:center; justify-content:center; padding: 40px 24px;">
-    <div class="auth-wrapper">
-      <div style="text-align:center; margin-bottom: 28px;">
-        <div class="logo" style="font-size: 26px; display:inline-block; margin-bottom: 6px;">Uni<span>gram</span></div>
-        <p style="font-size: 13px; color: var(--text-secondary)">Your professional learning platform</p>
-      </div>
-      <div class="auth-tabs">
-        <button class="auth-tab active" onclick="switchAuthTab(this, 'login')">Sign In</button>
-        <button class="auth-tab" onclick="switchAuthTab(this, 'register')">Create Account</button>
-      </div>
 
-      <!-- LOGIN -->
-      <div id="auth-login" class="auth-card">
-        <h2 class="auth-title">Welcome back</h2>
-        <p class="auth-subtitle">Sign in to your account</p>
 
-        <!-- Auth method toggle (plan specifies both email and OTP paths) -->
-        <div style="display:flex; background:var(--bg-elevated); border-radius:9px; padding:3px; gap:3px; margin-bottom:20px;">
-          <button id="method-email-btn" onclick="setAuthMethod('email')"
-            style="flex:1; padding:8px; border-radius:7px; border:none; font-size:13px; font-family:var(--font-body); cursor:pointer; transition:all 0.2s; background:var(--bg-card); color:var(--text-primary);">
-            ✉️ Email
-          </button>
-          <button id="method-otp-btn" onclick="setAuthMethod('otp')"
-            style="flex:1; padding:8px; border-radius:7px; border:none; font-size:13px; font-family:var(--font-body); cursor:pointer; transition:all 0.2s; background:transparent; color:var(--text-secondary);">
-            📱 Phone OTP
-          </button>
-        </div>
-
-        <!-- Email + Password fields (plan: mail, password, forgot password) -->
-        <div id="login-email-fields">
-          <div class="form-group">
-            <label class="input-label">Email Address</label>
-            <input type="email" class="input-field" placeholder="you@example.com" id="login-email">
-          </div>
-          <div class="form-group">
-            <label class="input-label">Password</label>
-            <input type="password" class="input-field" placeholder="Enter your password" id="login-password">
-          </div>
-          <!-- Forgot password — explicitly in the plan -->
-          <div style="text-align:right; margin-bottom:16px;">
-            <a onclick="showForgotPassword()" style="font-size:13px; color:var(--accent-teal); cursor:pointer; text-decoration:none;">Forgot password?</a>
-          </div>
-          <button class="btn-primary" style="width:100%" onclick="loginWithEmail()">Login →</button>
-        </div>
-
-        <!-- Phone OTP fields -->
-        <div id="login-otp-fields" style="display:none;">
-          <div class="form-group">
-            <label class="input-label">Phone Number</label>
-            <div style="display:flex; gap: 8px;">
-              <input type="text" class="input-field" value="+91" style="width: 64px; text-align:center; flex-shrink:0">
-              <input type="tel" class="input-field" placeholder="98765 43210">
-            </div>
-          </div>
-          <button class="btn-primary" style="width:100%" onclick="showOTP()">Send OTP →</button>
-        </div>
-
-        <div class="divider-text">or continue with</div>
-        <!-- Google sign-in — in the plan -->
-        <button class="btn-ghost" style="width:100%; justify-content:center; display:flex; align-items:center; gap:8px; padding: 11px;" onclick="showToast('Redirecting to Google...', '🌐')">
-          <span style="font-size:16px;">🌐</span> Sign in with Google
-        </button>
-        <p class="auth-footer">New to Unigram? <a onclick="switchToRegister()">Create account</a></p>
-      </div>
-
-      <!-- REGISTER (hidden initially) -->
-      <div id="auth-register" class="auth-card" style="display:none">
-        <h2 class="auth-title">Join Unigram</h2>
-        <p class="auth-subtitle">Create your account in 60 seconds</p>
-        <!-- Plan: NAME field -->
-        <div class="form-group">
-          <label class="input-label">Full Name</label>
-          <input type="text" class="input-field" placeholder="Abishek Joseph" id="reg-name">
-        </div>
-        <!-- Plan: mail field -->
-        <div class="form-group">
-          <label class="input-label">Email Address</label>
-          <input type="email" class="input-field" placeholder="you@example.com" id="reg-email">
-        </div>
-        <!-- Plan: password field -->
-        <div class="form-group">
-          <label class="input-label">Password</label>
-          <input type="password" class="input-field" placeholder="Create a password" id="reg-password">
-        </div>
-        <!-- Plan: confirm password field -->
-        <div class="form-group">
-          <label class="input-label">Confirm Password</label>
-          <input type="password" class="input-field" placeholder="Re-enter your password" id="reg-confirm">
-        </div>
-        <div class="form-group">
-          <label class="input-label">I am a</label>
-          <div class="role-selector">
-            <div class="role-opt selected" onclick="selectRole(this, 'student')">
-              <span class="role-opt-icon">🎓</span>
-              <div class="role-opt-label">Student</div>
-              <div class="role-opt-sub">Learn & grow</div>
-            </div>
-            <div class="role-opt mentor" onclick="selectRole(this, 'mentor')">
-              <span class="role-opt-icon">👨‍🏫</span>
-              <div class="role-opt-label">Mentor</div>
-              <div class="role-opt-sub">Teach & inspire</div>
-            </div>
-          </div>
-        </div>
-        <!-- Plan: sign up button -->
-        <button class="btn-primary" style="width:100%; margin-top: 8px;" onclick="registerUser()">Sign Up →</button>
-        <div class="divider-text">or</div>
-        <!-- Plan: Sign in with Google -->
-        <button class="btn-ghost" style="width:100%; justify-content:center; display:flex; align-items:center; gap:8px; padding: 11px;" onclick="showToast('Redirecting to Google...', '🌐')">
-          <span style="font-size:16px;">🌐</span> Sign in with Google
-        </button>
-        <p class="auth-footer">Already have an account? <a onclick="switchToLogin()">Sign in</a></p>
-      </div>
-    </div>
-  </div>
-
-  <!-- OTP STEP -->
-  <div id="auth-step-otp" style="display:none; min-height: calc(100vh - 64px); align-items:center; justify-content:center; padding: 40px 24px;">
-    <div class="auth-wrapper">
-      <div class="auth-card" style="text-align:center">
-        <div style="font-size: 40px; margin-bottom: 12px;">📱</div>
-        <h2 class="auth-title">Check your phone</h2>
-        <p class="auth-subtitle">We sent a 6-digit code to +91 98765 43210</p>
-        <div class="otp-inputs">
-          <input type="text" class="otp-input" maxlength="1" oninput="otpMove(this)">
-          <input type="text" class="otp-input" maxlength="1" oninput="otpMove(this)">
-          <input type="text" class="otp-input" maxlength="1" oninput="otpMove(this)">
-          <input type="text" class="otp-input" maxlength="1" oninput="otpMove(this)">
-          <input type="text" class="otp-input" maxlength="1" oninput="otpMove(this)">
-          <input type="text" class="otp-input" maxlength="1" oninput="otpVerify(this)">
-        </div>
-        <button class="btn-primary" style="width:100%; margin-bottom:12px" onclick="verifyOTP()">Verify & Continue</button>
-        <button class="btn-ghost" style="width:100%; justify-content:center;">Resend code in 0:30</button>
-        <p style="font-size:12px; color: var(--text-muted); margin-top:14px;">
-          Didn't receive? <a href="#" style="color:var(--accent-teal)">Try a different method</a>
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <!-- FORGOT PASSWORD STEP -->
-  <div id="auth-step-forgot" style="display:none; min-height: calc(100vh - 64px); align-items:center; justify-content:center; padding: 40px 24px;">
-    <div class="auth-wrapper">
-      <div class="auth-card">
-        <div style="font-size: 36px; margin-bottom: 12px; text-align:center;">🔐</div>
-        <h2 class="auth-title" style="text-align:center">Reset your password</h2>
-        <p class="auth-subtitle" style="text-align:center">Enter your email and we'll send a reset link</p>
-        <div class="form-group">
-          <label class="input-label">Email Address</label>
-          <input type="email" class="input-field" placeholder="you@example.com">
-        </div>
-        <button class="btn-primary" style="width:100%; margin-bottom:12px" onclick="sendResetLink()">Send Reset Link →</button>
-        <button class="btn-ghost" style="width:100%; justify-content:center; display:flex;" onclick="cancelForgot()">← Back to Login</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- ══════════════════════════════════════
      PAGE: STUDENT FEED
@@ -3080,27 +2853,30 @@
   }
 
   // Login with email/password (plan item)
-  function loginWithEmail() {
-    const email = document.getElementById('login-email').value;
-    const pass  = document.getElementById('login-password').value;
-    if (!email || !pass) { showToast('Please fill in all fields', '⚠️'); return; }
-    // TODO: await supabase.auth.signInWithPassword({ email, password: pass })
-    showToast('Signing in...', '🔐');
-    setTimeout(() => { AppState.currentUser = MOCK_CURRENT_USER; showPage('feed'); }, 1000);
-  }
+ async function loginWithEmail() {
+  const email = document.getElementById('login-email').value
+  if (!email) { showToast('Please enter your email', '⚠️'); return; }
+
+  const { error } = await supabase.auth.signInWithOtp({ email })
+  if (error) { showToast('Error: ' + error.message, '❌'); return; }
+
+  showToast('Magic link sent! Check your email ✉️', '📧')
+}
 
   // Register with email/password (plan item)
-  function registerUser() {
-    const name    = document.getElementById('reg-name').value;
-    const email   = document.getElementById('reg-email').value;
-    const pass    = document.getElementById('reg-password').value;
-    const confirm = document.getElementById('reg-confirm').value;
-    if (!name || !email || !pass || !confirm) { showToast('Please fill in all fields', '⚠️'); return; }
-    if (pass !== confirm) { showToast('Passwords do not match', '❌'); return; }
-    // TODO: await supabase.auth.signUp({ email, password: pass }) then insert profile row
-    showToast('Account created! Welcome 🎉', '🚀');
-    setTimeout(() => { AppState.currentUser = MOCK_CURRENT_USER; showPage('feed'); }, 1000);
-  }
+  async function registerUser() {
+  const name    = document.getElementById('reg-name').value
+  const email   = document.getElementById('reg-email').value
+  if (!name || !email) { showToast('Please fill in all fields', '⚠️'); return; }
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { data: { full_name: name } }
+  })
+  if (error) { showToast('Error: ' + error.message, '❌'); return; }
+
+  showToast('Magic link sent! Check your email ✉️', '📧')
+}
 
   // Forgot password flow (plan item)
   function showForgotPassword() {
