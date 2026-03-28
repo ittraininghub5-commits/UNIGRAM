@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&family=DM+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Syne", sans-serif;
+  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-card: var(--bg-card);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-accent-teal: #00D9A0;
+  --color-accent-purple: #8B6CF7;
+  --color-accent-amber: #F5A623;
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+}
+
+:root {
+  --bg-base: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #F1F5F9;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+}
+
+.dark {
+  --bg-base: #080C18;
+  --bg-surface: #0F1524;
+  --bg-card: #141C2E;
+  --bg-elevated: #1A2340;
+  --text-primary: #EEF2FF;
+  --text-secondary: #8892A4;
+  --text-muted: #4A5568;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-base text-text-primary font-sans antialiased transition-colors duration-300;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold tracking-tight;
+  }
+}
+
+.orb {
+  @apply fixed rounded-full pointer-events-none blur-[80px] z-0 transition-all duration-500;
+}
+
+.orb-1 {
+  @apply w-[500px] h-[500px] top-[-150px] right-[-100px];
+  background: radial-gradient(circle, rgba(0,217,160,0.05) 0%, transparent 70%);
+}
+
+.dark .orb-1 {
+  background: radial-gradient(circle, rgba(0,217,160,0.08) 0%, transparent 70%);
+}
+
+.orb-2 {
+  @apply w-[400px] h-[400px] bottom-[10%] left-[-100px];
+  background: radial-gradient(circle, rgba(139,108,247,0.04) 0%, transparent 70%);
+}
+
+.dark .orb-2 {
+  background: radial-gradient(circle, rgba(139,108,247,0.07) 0%, transparent 70%);
+}
