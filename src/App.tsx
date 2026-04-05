@@ -14,6 +14,9 @@ import ProfilePage from '@/src/pages/ProfilePage';
 import SearchPage from '@/src/pages/SearchPage';
 import MessagesPage from '@/src/pages/MessagesPage';
 import CourseDetailPage from '@/src/pages/CourseDetailPage';
+import MyCoursesPage from '@/src/pages/MyCoursesPage';
+import CertificatesPage from '@/src/pages/CertificatesPage';
+import QuizPage from '@/src/pages/QuizPage';
 
 // Components
 import Navbar from '@/src/components/Navbar';
@@ -93,6 +96,12 @@ export default function App() {
             <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/auth" />} />
             <Route path="/messages" element={user ? <MessagesPage profile={profile} /> : <Navigate to="/auth" />} />
             <Route path="/course/:id" element={user ? <CourseDetailPage /> : <Navigate to="/auth" />} />
+            
+            {/* New Routes - My Courses, Certificates, Quiz */}
+            <Route path="/courses" element={user ? <MyCoursesPage /> : <Navigate to="/auth" />} />
+            <Route path="/certificates" element={user ? <CertificatesPage /> : <Navigate to="/auth" />} />
+            <Route path="/quiz" element={user ? <QuizPage /> : <Navigate to="/auth" />} />
+            
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>

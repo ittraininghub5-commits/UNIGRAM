@@ -5,7 +5,7 @@ import { Profile, Video, Enrollment } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { getAIInsightForVideo, generateAIInsight, AIInsight as AIInsightType } from '@/src/services/aiService';
 import { cn, getInitials } from '@/src/lib/utils';
-import { Heart, MessageCircle, Share2, Play, Plus, BookOpen, Trophy, Search, Bell, Settings, CheckCircle2, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Plus, BookOpen, Trophy, Search, Bell, Settings, CheckCircle2, ChevronRight, Sparkles, Loader2, Gamepad2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FeedPageProps {
@@ -129,13 +129,42 @@ export default function FeedPage({ profile }: FeedPageProps) {
           </div>
 
           <nav className="bg-bg-card border border-white/5 rounded-2xl overflow-hidden">
-            <SidebarNavItem icon={<Plus className="w-4 h-4" />} label="Feed" active />
-            <SidebarNavItem icon={<BookOpen className="w-4 h-4" />} label="My Courses" />
-            <SidebarNavItem icon={<Trophy className="w-4 h-4" />} label="Certificates" />
-            <SidebarNavItem icon={<Search className="w-4 h-4" />} label="Search" />
-            <SidebarNavItem icon={<MessageCircle className="w-4 h-4" />} label="Messages" badge={3} />
-            <SidebarNavItem icon={<Bell className="w-4 h-4" />} label="Notifications" />
-            <SidebarNavItem icon={<Settings className="w-4 h-4" />} label="Settings" />
+            <SidebarNavItem 
+              icon={<Plus className="w-4 h-4" />} 
+              label="Feed" 
+              active 
+              onClick={() => navigate('/feed')}
+            />
+            <SidebarNavItem 
+              icon={<BookOpen className="w-4 h-4" />} 
+              label="My Courses"
+              onClick={() => navigate('/courses')}
+            />
+            <SidebarNavItem 
+              icon={<Trophy className="w-4 h-4" />} 
+              label="Certificates"
+              onClick={() => navigate('/certificates')}
+            />
+            <SidebarNavItem 
+              icon={<Search className="w-4 h-4" />} 
+              label="Search"
+              onClick={() => navigate('/search')}
+            />
+            <SidebarNavItem 
+              icon={<Gamepad2 className="w-4 h-4" />} 
+              label="Game"
+              onClick={() => navigate('/game')}
+            />
+            <SidebarNavItem 
+              icon={<Bell className="w-4 h-4" />} 
+              label="Notifications"
+              onClick={() => navigate('/notifications')}
+            />
+            <SidebarNavItem 
+              icon={<Settings className="w-4 h-4" />} 
+              label="Settings"
+              onClick={() => navigate('/settings')}
+            />
           </nav>
         </aside>
 
@@ -365,12 +394,26 @@ function SidebarStat({ value, label }: { value: string; label: string }) {
   );
 }
 
-function SidebarNavItem({ icon, label, active, badge }: { icon: React.ReactNode; label: string; active?: boolean; badge?: number }) {
+function SidebarNavItem({ 
+  icon, 
+  label, 
+  active, 
+  badge, 
+  onClick 
+}: { 
+  icon: React.ReactNode; 
+  label: string; 
+  active?: boolean; 
+  badge?: number; 
+  onClick?: () => void 
+}) {
   return (
-    <button className={cn(
-      "w-full flex items-center gap-3 px-4 py-3 text-sm transition-all border-b border-white/5 last:border-0",
-      active ? "text-accent-teal bg-accent-teal/5" : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
-    )}>
+    <button 
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-3 px-4 py-3 text-sm transition-all border-b border-white/5 last:border-0",
+        active ? "text-accent-teal bg-accent-teal/5" : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
+      )}>
       <span className="text-lg">{icon}</span>
       <span className="flex-1 text-left">{label}</span>
       {badge && <span className="bg-accent-teal text-bg-base text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badge}</span>}
