@@ -17,12 +17,14 @@
     "@vitejs/plugin-react": "^5.0.4",
     "canvas": "^3.2.2",
     "clsx": "^2.1.1",
+    "cors": "^2.8.6",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
-    "express": "^4.21.2",
+    "express": "^4.22.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "nodemailer": "^8.0.4",
     "pdfkit": "^0.18.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -41,5 +43,18 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
-  }
+  },
+  "description": "This document outlines the available API endpoints for the Unigram Academy platform.",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/silasjohn-oss/UNIGRAM.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/silasjohn-oss/UNIGRAM/issues"
+  },
+  "homepage": "https://github.com/silasjohn-oss/UNIGRAM#readme"
 }

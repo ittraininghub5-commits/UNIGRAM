@@ -86,9 +86,9 @@ export function CertificatesPage() {
     <Trophy className="w-12 h-12 text-green-400 mb-4" />
     
     <p className="text-green-400 text-sm font-semibold mb-2">
-      TOTAL CERTIFICATES (Course Achievements)
+      TOTAL CERTIFICATES EARNED
     </p>
-    
+    <sub>Course Achievements</sub>
     <p className="text-5xl font-bold text-white">
       {certificates.length}
     </p>
@@ -96,7 +96,8 @@ export function CertificatesPage() {
 
         <div className="bg-gradient-to-br from-cyan-500/20 to-blue-600/10 border border-cyan-500/30 rounded-2xl p-8 backdrop-blur-sm">
           <Award className="w-12 h-12 text-cyan-400 mb-4" />
-          <p className="text-cyan-400 text-sm font-semibold mb-2">COURSES COMPLETED</p>
+          <p className="text-cyan-400 text-sm font-semibold mb-2">BADGES AQUIRED </p>
+          <sub>Quiz completed</sub>
           <p className="text-5xl font-bold">{certificates.length}</p>
         </div>
       </div>

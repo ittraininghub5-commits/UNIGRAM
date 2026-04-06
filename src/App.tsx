@@ -4,7 +4,17 @@ import { Toaster } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
 import { Profile } from '@/src/types';
 import { User } from '@supabase/supabase-js';
-
+await fetch("http://localhost:5000/send-email", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    to: "receiver@gmail.com",
+    subject: "Test",
+    text: "Hello!"
+  })
+});
 // Pages
 import LandingPage from '@/src/pages/LandingPage';
 import AuthPage from '@/src/pages/AuthPage';
@@ -15,7 +25,7 @@ import SearchPage from '@/src/pages/SearchPage';
 import MessagesPage from '@/src/pages/MessagesPage';
 import CourseDetailPage from '@/src/pages/CourseDetailPage';
 import MyCoursesPage from '@/src/pages/MyCoursesPage';
-import CertificatesPage from '@/src/pages/CertificatesPage';
+import CertificatesPage from '@/src/pages/Certificatespage';
 import QuizPage from '@/src/pages/QuizPage';
 
 // Components
