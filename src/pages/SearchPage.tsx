@@ -63,7 +63,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+        <div className="pt-18 max-w-7xl mx-auto px-4 ...">
       <div className="space-y-6">
         <h1 className="text-3xl font-display font-extrabold tracking-tight">Search Unigram</h1>
         

@@ -119,7 +119,7 @@ export default function App() {
         
         <main className="relative z-10">
           <Routes>
-            <Route path="/" element={<LandingPage />} />
+<Route path="/" element={user ? <Navigate to="/feed" replace /> : <LandingPage />} />
             <Route path="/auth" element={user ? <Navigate to="/feed" /> : <AuthPage />} />
             <Route path="/feed" element={user ? <FeedPage profile={profile} /> : <Navigate to="/auth" />} />
             <Route path="/dashboard" element={profile?.role === 'mentor' ? <MentorDashboard profile={profile} /> : <Navigate to="/feed" />} />

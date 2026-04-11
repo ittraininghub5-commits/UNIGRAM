@@ -30,7 +30,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-128px)]">
+        <div className="pt-18 max-w-7xl mx-auto px-4 ...">
       <div className="bg-bg-card border border-white/5 rounded-[32px] overflow-hidden grid grid-cols-[320px_1fr] h-full shadow-2xl">
         
         {/* Thread List */}

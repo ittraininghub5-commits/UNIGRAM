@@ -1,10 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Profile } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { cn } from '@/src/lib/utils';
 import { Search, MessageSquare, User as UserIcon, LayoutDashboard, LogOut, Sun, Moon } from 'lucide-react';
 import { useTheme } from '@/src/context/ThemeContext';
+import { useState, useEffect } from 'react';
 
 interface NavbarProps {
   user: User | null;
@@ -13,27 +14,114 @@ interface NavbarProps {
 
 export default function Navbar({ user, profile }: NavbarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const [activeSection, setActiveSection] = useState('home');
+
+  useEffect(() => {
+    let ticking = false;
+    
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          // Update active section based on scroll position
+          const sections = ['home', 'purpose', 'about', 'roles'];
+          for (const section of sections) {
+            const element = document.getElementById(section);
+            if (element) {
+              const rect = element.getBoundingClientRect();
+              if (rect.top <= 100) {
+                setActiveSection(section);
+              }
+            }
+          }
+          
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleSmoothScroll = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      // Scroll with offset (80px) to prevent heading overlap with navbar
+      const offsetTop = element.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({
+        top: offsetTop,
+        behavior: 'smooth'
+      });
+      setActiveSection(sectionId);
+    }
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate('/');
   };
 
+  // Show navigation sections only on landing page
+  const isLandingPage = location.pathname === '/';
+
   return (
-    <nav className="sticky top-0 z-50 bg-bg-base/85 backdrop-blur-2xl border-b border-white/5 transition-colors duration-300">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-bg-base/95 backdrop-blur-md border-b border-text-primary/5 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2 group">
-            <span className="font-display text-2xl font-extrabold tracking-tighter text-text-primary">
+          {/* Logo - Left */}
+          <Link to="/" className="flex items-center gap-2 group flex-shrink-0">
+            <span className="font-display text-xl font-extrabold tracking-tighter text-text-primary">
               Uni<span className="text-accent-teal group-hover:text-[#00f5b4] transition-colors">gram</span>
             </span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-1">
-            <NavLink to="/" label="Home" />
-            {user && (
-              <>
+          {/* Center Navigation - Always visible on landing page */}
+          {isLandingPage && (
+            <div className="hidden md:flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
+              <button
+                onClick={() => handleSmoothScroll('home')}
+                className={cn(
+                  "px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                  activeSection === 'home'
+                    ? "text-accent-teal bg-accent-teal/15"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
+                )}
+              >
+                Home
+              </button>
+              <button
+                onClick={() => handleSmoothScroll('purpose')}
+                className={cn(
+                  "px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                  activeSection === 'purpose'
+                    ? "text-accent-teal bg-accent-teal/15"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
+                )}
+              >
+                The Problem
+              </button>
+              <button
+                onClick={() => handleSmoothScroll('about')}
+                className={cn(
+                  "px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                  activeSection === 'about'
+                    ? "text-accent-teal bg-accent-teal/15"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
+                )}
+              >
+                About Us
+              </button>
+            </div>
+          )}
+
+          {/* Right side - User nav + theme + auth */}
+          <div className="flex items-center gap-3">
+            {/* User Navigation - Only show when logged in and not on landing page */}
+            {user && !isLandingPage && (
+              <div className="hidden md:flex items-center gap-1">
                 <NavLink to="/feed" label="Feed" />
                 <NavLink to="/search" label="Search" icon={<Search className="w-4 h-4" />} />
                 <NavLink to="/messages" label="Messages" icon={<MessageSquare className="w-4 h-4" />} />
@@ -41,26 +129,39 @@ export default function Navbar({ user, profile }: NavbarProps) {
                   <NavLink to="/dashboard" label="Dashboard" icon={<LayoutDashboard className="w-4 h-4" />} />
                 )}
                 <NavLink to={`/profile/${user.id}`} label="Profile" icon={<UserIcon className="w-4 h-4" />} />
-              </>
+              </div>
             )}
-          </div>
 
-          <div className="flex items-center gap-3">
+            {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl bg-bg-elevated text-text-secondary hover:text-text-primary transition-all"
+              className={cn(
+                "p-2 rounded-lg transition-all duration-200",
+                theme === 'light'
+                  ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
+                  : "bg-bg-elevated text-text-secondary hover:text-text-primary"
+              )}
               aria-label="Toggle Theme"
             >
               {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </button>
 
+            {/* Auth Buttons */}
             {!user ? (
-              <Link
-                to="/auth"
-                className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2 rounded-xl text-sm font-bold font-display transition-all hover:-translate-y-0.5 active:translate-y-0"
-              >
-                Sign In
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/auth?mode=signin"
+                  className="text-text-secondary hover:text-text-primary px-4 py-2 text-sm font-medium transition-colors"
+                >
+                  Sign In
+                </Link>
+                <button
+                  onClick={() => handleSmoothScroll('roles')}
+                  className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2 rounded-lg text-sm font-bold font-display transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  Register
+                </button>
+              </div>
             ) : (
               <button
                 onClick={handleSignOut}
@@ -81,7 +182,7 @@ function NavLink({ to, label, icon }: { to: string; label: string; icon?: React.
   return (
     <Link
       to={to}
-      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-xl transition-all"
+      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-lg transition-all"
     >
       {icon}
       {label}

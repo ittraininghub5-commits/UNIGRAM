@@ -5,9 +5,10 @@ import { ArrowRight, GraduationCap, Users, Award, Shield, BarChart3, Zap } from 
 
 export default function LandingPage() {
   return (
-    <div className="space-y-24 pb-24">
+    <>
+      <div className="pt-32 space-y-24 pb-24">
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 grid lg:grid-cols-2 gap-16 items-center">
+      <section id="home" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 grid lg:grid-cols-2 gap-16 items-center">
         <div className="space-y-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -103,7 +104,7 @@ export default function LandingPage() {
       </section>
 
       {/* Problem Section (Gaps) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="purpose" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center space-y-4 mb-16">
           <span className="text-xs font-mono text-accent-teal tracking-widest uppercase">The Problem</span>
           <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter">Three Critical Gaps in Education</h2>
@@ -133,11 +134,11 @@ export default function LandingPage() {
         <div className="bg-bg-card border border-white/5 rounded-[48px] p-12 md:p-20 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-accent-teal/5 to-transparent" />
           
-          <div className="relative z-10 grid lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-8">
+          <div className="relative z-10 grid lg:grid-cols-2 gap-16 items-start">
+            <div className="space-y-7">
               <span className="text-xs font-mono text-accent-teal tracking-widest uppercase">The Unigram Solution</span>
-              <h2 className="text-4xl md:text-6xl font-extrabold tracking-tighter">Three Foundational Pillars</h2>
-              <p className="text-lg text-text-secondary leading-relaxed">
+              <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter max-w-sm leading-tight">Three Foundational Pillars</h2>
+              <p className="text-lg text-text-secondary leading-relaxed max-w-sm">                
                 Unigram bridges all three gaps through a unified platform built on credibility, verification, and real human connection.
               </p>
             </div>
@@ -160,8 +161,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Features Section - This is what "About Us" links to */}
+      <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center space-y-4 mb-16">
           <span className="text-xs font-mono text-accent-teal tracking-widest uppercase">What makes us different</span>
           <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter">Built for the future of learning</h2>
@@ -208,7 +209,7 @@ export default function LandingPage() {
       </section>
 
       {/* Roles Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="roles" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center space-y-4 mb-16">
           <span className="text-xs font-mono text-accent-teal tracking-widest uppercase">Choose your path</span>
           <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter">Who is Unigram for?</h2>
@@ -281,6 +282,7 @@ export default function LandingPage() {
         </p>
       </footer>
     </div>
+    </>
   );
 }
 
