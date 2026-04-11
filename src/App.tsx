@@ -4,17 +4,7 @@ import { Toaster } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
 import { Profile } from '@/src/types';
 import { User } from '@supabase/supabase-js';
-await fetch("http://localhost:5000/send-email", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    to: "receiver@gmail.com",
-    subject: "Test",
-    text: "Hello!"
-  })
-});
+
 // Pages
 import LandingPage from '@/src/pages/LandingPage';
 import AuthPage from '@/src/pages/AuthPage';
@@ -27,10 +17,19 @@ import CourseDetailPage from '@/src/pages/CourseDetailPage';
 import MyCoursesPage from '@/src/pages/MyCoursesPage';
 import CertificatesPage from '@/src/pages/Certificatespage';
 import QuizPage from '@/src/pages/QuizPage';
+import GamesPage from '@/src/pages/GamesPage';
+import { 
+  ReactionGamePage, 
+  TypingGamePage, 
+  MemoryGamePage, 
+  HunterGamePage 
+} from '@/src/pages/GamePages';
 
 // Components
 import Navbar from '@/src/components/Navbar';
 import { useTheme } from '@/src/context/ThemeContext';
+import '@/src/styles/GamesPage.css';
+import '@/src/styles/GamePage.css';
 
 export default function App() {
   const { theme } = useTheme();
@@ -38,8 +37,8 @@ export default function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ ORIGINAL LOGIC (UNCHANGED)
   useEffect(() => {
-    // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -49,7 +48,6 @@ export default function App() {
       }
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -61,6 +59,29 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // ✅ FIXED: Separate useEffect (NOT nested)
+  useEffect(() => {
+    const sendEmail = async () => {
+      try {
+        await fetch("http://localhost:5000/send-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            to: "receiver@gmail.com",
+            subject: "Test",
+            text: "Hello!"
+          })
+        });
+      } catch (err) {
+        console.error("Email error:", err);
+      }
+    };
+
+    sendEmail();
   }, []);
 
   const fetchProfile = async (userId: string) => {
@@ -107,10 +128,15 @@ export default function App() {
             <Route path="/messages" element={user ? <MessagesPage profile={profile} /> : <Navigate to="/auth" />} />
             <Route path="/course/:id" element={user ? <CourseDetailPage /> : <Navigate to="/auth" />} />
             
-            {/* New Routes - My Courses, Certificates, Quiz */}
             <Route path="/courses" element={user ? <MyCoursesPage /> : <Navigate to="/auth" />} />
             <Route path="/certificates" element={user ? <CertificatesPage /> : <Navigate to="/auth" />} />
             <Route path="/quiz" element={user ? <QuizPage /> : <Navigate to="/auth" />} />
+
+            <Route path="/games" element={user ? <GamesPage /> : <Navigate to="/auth" />} />
+            <Route path="/game/reaction" element={user ? <ReactionGamePage /> : <Navigate to="/auth" />} />
+            <Route path="/game/typing" element={user ? <TypingGamePage /> : <Navigate to="/auth" />} />
+            <Route path="/game/memory" element={user ? <MemoryGamePage /> : <Navigate to="/auth" />} />
+            <Route path="/game/hunter" element={user ? <HunterGamePage /> : <Navigate to="/auth" />} />
             
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

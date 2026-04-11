@@ -153,7 +153,7 @@ export default function FeedPage({ profile }: FeedPageProps) {
             <SidebarNavItem 
               icon={<Gamepad2 className="w-4 h-4" />} 
               label="Game"
-              onClick={() => navigate('/game')}
+              onClick={() => navigate('/games')}
             />
             <SidebarNavItem 
               icon={<Bell className="w-4 h-4" />} 

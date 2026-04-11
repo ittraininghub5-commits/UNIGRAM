@@ -1,0 +1,503 @@
+/* ============================================================
+   Games Page Styling - Matching Unigram Design System
+   ============================================================ */
+
+.games-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+  padding: 2rem;
+  font-family: inherit;
+}
+
+.games-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   Header Section
+   ============================================================ */
+
+.games-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding: 2rem 0;
+}
+
+.games-header h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+  letter-spacing: -1px;
+}
+
+.games-header p {
+  font-size: 1.1rem;
+  color: #7a8ba6;
+  font-weight: 500;
+}
+
+/* ============================================================
+   Player Rank Section
+   ============================================================ */
+
+.player-rank-section {
+  margin-bottom: 3rem;
+  display: flex;
+  justify-content: center;
+}
+
+.rank-card {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 212, 255, 0.05) 100%);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: 16px;
+  min-width: 400px;
+  max-width: 500px;
+  backdrop-filter: blur(10px);
+}
+
+.rank-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+  border-radius: 50%;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #0a0e27;
+  box-shadow: 0 8px 24px rgba(0, 255, 136, 0.3);
+}
+
+.rank-info {
+  flex: 1;
+}
+
+.rank-info h3 {
+  font-size: 1rem;
+  color: #00ff88;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.rank-info p {
+  font-size: 0.95rem;
+  color: #7a8ba6;
+}
+
+.rank-best {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.best-label {
+  font-size: 0.75rem;
+  color: #7a8ba6;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+.best-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #00ff88;
+}
+
+/* ============================================================
+   Games Grid (2x2 Layout)
+   ============================================================ */
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+  margin-bottom: 4rem;
+}
+
+.game-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 2rem;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+/* Game Card Gradient Variants */
+.game-card.gradient-1 {
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.15) 0%, rgba(0, 255, 136, 0.05) 100%);
+  border-color: rgba(0, 255, 136, 0.4);
+}
+
+.game-card.gradient-2 {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.05) 100%);
+  border-color: rgba(0, 212, 255, 0.4);
+}
+
+.game-card.gradient-3 {
+  background: linear-gradient(135deg, rgba(147, 112, 219, 0.15) 0%, rgba(147, 112, 219, 0.05) 100%);
+  border-color: rgba(147, 112, 219, 0.4);
+}
+
+.game-card.gradient-4 {
+  background: linear-gradient(135deg, rgba(255, 192, 61, 0.15) 0%, rgba(255, 192, 61, 0.05) 100%);
+  border-color: rgba(255, 192, 61, 0.4);
+}
+
+.game-card:hover {
+  transform: translateY(-8px);
+  border-width: 2px;
+}
+
+.game-card.gradient-1:hover {
+  border-color: rgba(0, 255, 136, 0.7);
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.25) 0%, rgba(0, 255, 136, 0.1) 100%);
+  box-shadow: 0 20px 40px rgba(0, 255, 136, 0.2);
+}
+
+.game-card.gradient-2:hover {
+  border-color: rgba(0, 212, 255, 0.7);
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.25) 0%, rgba(0, 212, 255, 0.1) 100%);
+  box-shadow: 0 20px 40px rgba(0, 212, 255, 0.2);
+}
+
+.game-card.gradient-3:hover {
+  border-color: rgba(147, 112, 219, 0.7);
+  background: linear-gradient(135deg, rgba(147, 112, 219, 0.25) 0%, rgba(147, 112, 219, 0.1) 100%);
+  box-shadow: 0 20px 40px rgba(147, 112, 219, 0.2);
+}
+
+.game-card.gradient-4:hover {
+  border-color: rgba(255, 192, 61, 0.7);
+  background: linear-gradient(135deg, rgba(255, 192, 61, 0.25) 0%, rgba(255, 192, 61, 0.1) 100%);
+  box-shadow: 0 20px 40px rgba(255, 192, 61, 0.2);
+}
+
+.game-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.game-emoji {
+  font-size: 4rem;
+  line-height: 1;
+  animation: float 3s ease-in-out infinite;
+}
+
+.game-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.game-description {
+  font-size: 0.95rem;
+  color: #7a8ba6;
+  margin: 0;
+  line-height: 1.4;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.play-button {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+  color: #0a0e27;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.5px;
+  box-shadow: 0 8px 24px rgba(0, 255, 136, 0.2);
+}
+
+.play-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 32px rgba(0, 255, 136, 0.3);
+}
+
+.play-button:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================
+   Leaderboard Section
+   ============================================================ */
+
+.leaderboard-section {
+  padding: 2rem;
+  background: linear-gradient(135deg, rgba(10, 14, 39, 0.8) 0%, rgba(26, 31, 58, 0.8) 100%);
+  border: 1px solid rgba(0, 255, 136, 0.2);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+}
+
+.leaderboard-section h2 {
+  font-size: 1.8rem;
+  color: #ffffff;
+  margin-top: 0;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.leaderboard-section h2::before {
+  content: '🏆';
+  font-size: 1.5rem;
+}
+
+.leaderboard-container {
+  min-height: 300px;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.leaderboard-item {
+  display: grid;
+  grid-template-columns: 60px 1fr 120px;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.05) 0%, rgba(0, 212, 255, 0.05) 100%);
+  border: 1px solid rgba(0, 255, 136, 0.15);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.leaderboard-item:hover {
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 212, 255, 0.1) 100%);
+  border-color: rgba(0, 255, 136, 0.3);
+  transform: translateX(4px);
+}
+
+.rank-column {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #00ff88;
+}
+
+.player-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.player-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.game-tag {
+  font-size: 0.75rem;
+  color: #7a8ba6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.score-column {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.score-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #00d4ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 1rem;
+  text-align: center;
+}
+
+.empty-state p:first-child {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.empty-state p:last-child {
+  font-size: 1rem;
+  color: #7a8ba6;
+  margin: 0;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  font-size: 1.1rem;
+  color: #7a8ba6;
+}
+
+/* ============================================================
+   Responsive Design
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .games-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rank-card {
+    min-width: auto;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .games-page {
+    padding: 1rem;
+  }
+
+  .games-header h1 {
+    font-size: 2rem;
+  }
+
+  .games-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .game-card {
+    min-height: 250px;
+    padding: 1.5rem;
+  }
+
+  .game-emoji {
+    font-size: 3rem;
+  }
+
+  .game-name {
+    font-size: 1.25rem;
+  }
+
+  .leaderboard-item {
+    grid-template-columns: 50px 1fr 100px;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .rank-card {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+    min-width: unset;
+  }
+
+  .rank-badge {
+    width: 60px;
+    height: 60px;
+    font-size: 2rem;
+  }
+
+  .rank-best {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .games-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .games-header p {
+    font-size: 0.9rem;
+  }
+
+  .game-emoji {
+    font-size: 2.5rem;
+  }
+
+  .game-name {
+    font-size: 1rem;
+  }
+
+  .game-description {
+    font-size: 0.85rem;
+  }
+
+  .leaderboard-item {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .score-column {
+    justify-content: flex-start;
+  }
+
+  .player-column {
+    order: 1;
+  }
+
+  .rank-column {
+    order: 2;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .score-column {
+    order: 3;
+  }
+}
