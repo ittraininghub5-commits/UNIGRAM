@@ -337,6 +337,19 @@ export default function NotificationsPage() {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
       <div className={`max-w-6xl mx-auto px-4 py-8 pt-24 ${getTextColor()}`}>
+        {/* Back Button */}
+        <button
+          onClick={() => navigate('/feed')}
+          className={`mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${
+            theme === 'dark'
+              ? 'border-white/10 text-text-secondary hover:text-text-primary hover:border-white/20'
+              : 'border-slate-300 text-slate-600 hover:text-slate-900 hover:border-slate-400'
+          }`}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+
         {/* Header */}
         <div className={`mb-8 pb-6 border-b transition-colors duration-300 ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'} text-center`}>
           <h1 className={`text-4xl font-bold mb-2 ${getTextColor()}`}>Notifications</h1>
@@ -395,7 +408,7 @@ export default function NotificationsPage() {
               : 'bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200 hover:border-teal-300'
           }`}>
             <div className={`text-3xl font-bold mb-2 ${theme === 'dark' ? 'text-teal-400' : 'text-teal-600'}`}>{notifications.length}</div>
-            <div className={`text-sm uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Total Notifications</div>
+            <div className={`text-sm uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Badges & Certificates</div>
           </div>
           <div className={`p-5 border rounded-xl text-center hover:shadow-md transition-all duration-300 ${
             theme === 'dark'
@@ -403,15 +416,15 @@ export default function NotificationsPage() {
               : 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:border-blue-300'
           }`}>
             <div className={`text-3xl font-bold mb-2 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>{notifications.filter(n => n.category === 'badges').length}</div>
-            <div className={`text-sm uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Badges & Certificates</div>
+            <div className={`text-sm uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Messages</div>
           </div>
           <div className={`p-5 border rounded-xl text-center hover:shadow-md transition-all duration-300 ${
             theme === 'dark'
               ? 'bg-gradient-to-br from-purple-900/40 to-purple-800/20 border-purple-600/30 hover:border-purple-500'
               : 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:border-purple-300'
           }`}>
-            <div className={`text-3xl font-bold mb-2 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>{notifications.filter(n => n.category === 'messages').length}</div>
-            <div className={`text-sm uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Messages</div>
+            <div className={`text-3xl font-bold mb-2 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>{notifications.filter(n => n.category === 'achievements').length}</div>
+            <div className={`text-sm uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Achievements</div>
           </div>
         </div>
 
