@@ -399,8 +399,8 @@ export default function FeedPage({ profile }: FeedPageProps) {
     }, 250);
   };
 
-    return (
-      <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  return (
+        <div className="pt-18 max-w-7xl mx-auto px-4 ...">
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-8 items-start">
         
         {/* Left Sidebar */}
@@ -470,7 +470,7 @@ export default function FeedPage({ profile }: FeedPageProps) {
             <SidebarNavItem 
               icon={<Bell className="w-4 h-4" />} 
               label="Notifications"
-              onClick={() => navigate('/notifications')}
+              onClick={() => navigate('/notificationspage')}
             />
             <SidebarNavItem 
               icon={<Settings className="w-4 h-4" />} 

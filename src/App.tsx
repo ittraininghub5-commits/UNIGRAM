@@ -165,6 +165,7 @@ export default function App() {
             <Route path="/courses" element={user ? <MyCoursesPage /> : <Navigate to="/auth" />} />
             <Route path="/certificates" element={user ? <CertificatesPage /> : <Navigate to="/auth" />} />
             <Route path="/quiz" element={user ? <QuizPage /> : <Navigate to="/auth" />} />
+            <Route path="/notificationspage" element={user ? <NotificationsPage /> : <Navigate to="/auth" />} />
 
             <Route path="/games" element={user ? <GamesPage /> : <Navigate to="/auth" />} />
             <Route path="/game/reaction" element={user ? <ReactionGamePage /> : <Navigate to="/auth" />} />
