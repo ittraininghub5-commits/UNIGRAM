@@ -18,6 +18,9 @@ import MyCoursesPage from '@/src/pages/MyCoursesPage';
 import CertificatesPage from '@/src/pages/Certificatespage';
 import QuizPage from '@/src/pages/QuizPage';
 import GamesPage from '@/src/pages/GamesPage';
+import OAuthCallbackPage from '@/src/pages/OAuthCallbackPage';
+import NotificationsPage from '@/src/pages/NotificationsPage';
+import SettingsPage from '@/src/pages/SettingsPage';
 import { 
   ReactionGamePage, 
   TypingGamePage, 
@@ -27,7 +30,9 @@ import {
 
 // Components
 import Navbar from '@/src/components/Navbar';
+import ErrorBoundary from '@/src/components/ErrorBoundary';
 import { useTheme } from '@/src/context/ThemeContext';
+import { getHomeRouteForRole, isMentorRole, normalizeUserRole } from '@/src/lib/roles';
 import '@/src/styles/GamesPage.css';
 import '@/src/styles/GamePage.css';
 
@@ -42,7 +47,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user);
       } else {
         setLoading(false);
       }
@@ -51,7 +56,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user);
       } else {
         setProfile(null);
         setLoading(false);
@@ -61,39 +66,66 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ✅ FIXED: Separate useEffect (NOT nested)
-  useEffect(() => {
-    const sendEmail = async () => {
-      try {
-        await fetch("http://localhost:5000/send-email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            to: "receiver@gmail.com",
-            subject: "Test",
-            text: "Hello!"
-          })
-        });
-      } catch (err) {
-        console.error("Email error:", err);
-      }
-    };
-
-    sendEmail();
-  }, []);
-
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (authUser: User) => {
     try {
+      const metadataAvatar =
+        typeof authUser.user_metadata?.avatar_url === 'string'
+          ? authUser.user_metadata.avatar_url
+          : typeof authUser.user_metadata?.picture === 'string'
+            ? authUser.user_metadata.picture
+            : null;
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
-        .single();
-      
+        .eq('id', authUser.id)
+        .maybeSingle();
+
       if (error) throw error;
-      setProfile(data || null);
+
+      if (!data) {
+        const fallbackRole = normalizeUserRole(authUser.user_metadata?.role);
+        const institution = typeof authUser.user_metadata?.institution === 'string'
+          ? authUser.user_metadata.institution.trim() || null
+          : null;
+        const { data: created, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authUser.id,
+            email: authUser.email || '',
+            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+            role: fallbackRole,
+            institution,
+            avatar_url: metadataAvatar,
+          })
+          .select('*')
+          .maybeSingle();
+
+        if (createError) throw createError;
+        setProfile((created || {
+          id: authUser.id,
+          email: authUser.email || '',
+          full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+          role: fallbackRole,
+          institution,
+          avatar_url: metadataAvatar,
+        } || null) as Profile | null);
+      } else {
+        if (!data.avatar_url && metadataAvatar) {
+          const optimisticProfile = { ...data, avatar_url: metadataAvatar };
+          const { data: updated } = await supabase
+            .from('profiles')
+            .update({ avatar_url: metadataAvatar })
+            .eq('id', authUser.id)
+            .select('*')
+            .maybeSingle();
+
+          setProfile((updated || optimisticProfile || null) as Profile | null);
+          return;
+        }
+
+        setProfile((data || null) as Profile | null);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
@@ -110,8 +142,9 @@ export default function App() {
   }
 
   return (
-    <Router>
-      <div className="min-h-screen bg-bg-base relative overflow-hidden">
+    <ErrorBoundary>
+      <Router>
+        <div className="min-h-screen bg-bg-base relative overflow-hidden">
         <div className="orb orb-1"></div>
         <div className="orb orb-2"></div>
         
@@ -119,10 +152,11 @@ export default function App() {
         
         <main className="relative z-10">
           <Routes>
-<Route path="/" element={user ? <Navigate to="/feed" replace /> : <LandingPage />} />
-            <Route path="/auth" element={user ? <Navigate to="/feed" /> : <AuthPage />} />
+<Route path="/" element={user ? <Navigate to={getHomeRouteForRole(profile?.role)} replace /> : <LandingPage />} />
+            <Route path="/auth" element={user ? <Navigate to={getHomeRouteForRole(profile?.role)} replace /> : <AuthPage />} />
+            <Route path="/auth/callback" element={<OAuthCallbackPage />} />
             <Route path="/feed" element={user ? <FeedPage profile={profile} /> : <Navigate to="/auth" />} />
-            <Route path="/dashboard" element={profile?.role === 'mentor' ? <MentorDashboard profile={profile} /> : <Navigate to="/feed" />} />
+            <Route path="/dashboard" element={isMentorRole(profile?.role) ? <MentorDashboard profile={profile} /> : <Navigate to="/feed" />} />
             <Route path="/profile/:id?" element={user ? <ProfilePage currentProfile={profile} /> : <Navigate to="/auth" />} />
             <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/auth" />} />
             <Route path="/messages" element={user ? <MessagesPage profile={profile} /> : <Navigate to="/auth" />} />
@@ -137,13 +171,16 @@ export default function App() {
             <Route path="/game/typing" element={user ? <TypingGamePage /> : <Navigate to="/auth" />} />
             <Route path="/game/memory" element={user ? <MemoryGamePage /> : <Navigate to="/auth" />} />
             <Route path="/game/hunter" element={user ? <HunterGamePage /> : <Navigate to="/auth" />} />
+            <Route path="/notifications" element={user ? <NotificationsPage /> : <Navigate to="/auth" />} />
+            <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/auth" />} />
             
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
 
-        <Toaster position="bottom-center" theme={theme === 'dark' ? 'dark' : 'light'} />
-      </div>
-    </Router>
+          <Toaster position="bottom-center" theme={theme === 'dark' ? 'dark' : 'light'} />
+        </div>
+      </Router>
+    </ErrorBoundary>
   );
 }

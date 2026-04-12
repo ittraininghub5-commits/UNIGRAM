@@ -168,6 +168,20 @@ CREATE TABLE IF NOT EXISTS certificates (
   UNIQUE(enrollment_id)
 );
 
+-- 12b. Certificate Requests Table
+CREATE TABLE IF NOT EXISTS certificate_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  enrollment_id UUID REFERENCES enrollments(id) ON DELETE CASCADE NOT NULL,
+  student_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  mentor_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  course_id UUID REFERENCES courses(id) ON DELETE CASCADE NOT NULL,
+  status TEXT CHECK (status IN ('pending', 'approved', 'rejected')) NOT NULL DEFAULT 'pending',
+  requested_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  reviewed_at TIMESTAMP WITH TIME ZONE,
+  mentor_notes TEXT,
+  UNIQUE(enrollment_id)
+);
+
 -- 13. Submissions Table
 CREATE TABLE IF NOT EXISTS submissions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -200,6 +214,20 @@ CREATE TABLE IF NOT EXISTS comments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- 16. Game Scores Table
+CREATE TABLE IF NOT EXISTS game_scores (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  player_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  player_name TEXT NOT NULL,
+  game_type TEXT CHECK (game_type IN ('reaction', 'typing', 'memory', 'hunter')) NOT NULL,
+  score INTEGER NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_scores_type_score ON game_scores (game_type, score DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_game_scores_created_at ON game_scores (created_at DESC);
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
@@ -213,9 +241,11 @@ ALTER TABLE quizzes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quiz_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recommendations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE certificate_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE game_scores ENABLE ROW LEVEL SECURITY;
 
 -- Policies
 
@@ -281,6 +311,19 @@ CREATE POLICY "Mentors can create recommendations" ON recommendations FOR INSERT
 CREATE POLICY "Certificates viewable by everyone" ON certificates FOR SELECT USING (true);
 CREATE POLICY "Mentors can issue certificates" ON certificates FOR INSERT WITH CHECK (auth.uid() = mentor_id);
 
+-- Certificate Requests
+CREATE POLICY "Certificate requests viewable by student or mentor" ON certificate_requests FOR SELECT USING (
+  auth.uid() = student_id OR auth.uid() = mentor_id
+);
+CREATE POLICY "Students can request own certificate" ON certificate_requests FOR INSERT WITH CHECK (
+  auth.uid() = student_id
+);
+CREATE POLICY "Mentors can review own certificate requests" ON certificate_requests FOR UPDATE USING (
+  auth.uid() = mentor_id
+) WITH CHECK (
+  auth.uid() = mentor_id
+);
+
 -- Submissions
 CREATE POLICY "Submissions viewable by student or mentor" ON submissions FOR SELECT USING (
   auth.uid() = student_id OR 
@@ -291,27 +334,180 @@ CREATE POLICY "Students can create submissions" ON submissions FOR INSERT WITH C
 -- Messages
 CREATE POLICY "Messages viewable by sender or receiver" ON messages FOR SELECT USING (auth.uid() = from_id OR auth.uid() = to_id);
 CREATE POLICY "Users can send messages" ON messages FOR INSERT WITH CHECK (auth.uid() = from_id);
+CREATE POLICY "Recipients can mark messages as read" ON messages FOR UPDATE USING (auth.uid() = to_id) WITH CHECK (auth.uid() = to_id);
 
 -- Comments
 CREATE POLICY "Comments viewable by everyone" ON comments FOR SELECT USING (true);
 CREATE POLICY "Users can manage own comments" ON comments FOR ALL USING (auth.uid() = user_id);
 
+-- Game Scores
+CREATE POLICY "Game scores viewable by everyone" ON game_scores FOR SELECT USING (true);
+CREATE POLICY "Users can insert own game scores" ON game_scores FOR INSERT WITH CHECK (
+  auth.uid() = player_id OR player_id IS NULL
+);
+
+-- Mentor role hardening policies
+DROP POLICY IF EXISTS "Mentors can manage own courses" ON courses;
+CREATE POLICY "Mentors can manage own courses" ON courses FOR ALL USING (
+  auth.uid() = mentor_id
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+) WITH CHECK (
+  auth.uid() = mentor_id
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+);
+
+DROP POLICY IF EXISTS "Mentors can manage own videos" ON videos;
+CREATE POLICY "Mentors can manage own videos" ON videos FOR ALL USING (
+  auth.uid() = mentor_id
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+) WITH CHECK (
+  auth.uid() = mentor_id
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+);
+
+DROP POLICY IF EXISTS "Mentors can manage course materials" ON course_materials;
+CREATE POLICY "Mentors can manage course materials" ON course_materials FOR ALL USING (
+  auth.uid() = mentor_id
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+) WITH CHECK (
+  auth.uid() = mentor_id
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+);
+
+DROP POLICY IF EXISTS "Mentors can manage AI insights" ON ai_insights;
+CREATE POLICY "Mentors can manage AI insights" ON ai_insights FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM videos v
+    WHERE v.id = video_id
+      AND v.mentor_id = auth.uid()
+  )
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+) WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM videos v
+    WHERE v.id = video_id
+      AND v.mentor_id = auth.uid()
+  )
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+);
+
+DROP POLICY IF EXISTS "Mentors can manage quizzes" ON quizzes;
+CREATE POLICY "Mentors can manage quizzes" ON quizzes FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM courses c
+    WHERE c.id = course_id
+      AND c.mentor_id = auth.uid()
+  )
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+) WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM courses c
+    WHERE c.id = course_id
+      AND c.mentor_id = auth.uid()
+  )
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+);
+
+DROP POLICY IF EXISTS "Mentors can manage quiz questions" ON quiz_questions;
+CREATE POLICY "Mentors can manage quiz questions" ON quiz_questions FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM quizzes q
+    JOIN courses c ON q.course_id = c.id
+    WHERE q.id = quiz_id
+      AND c.mentor_id = auth.uid()
+  )
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+) WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM quizzes q
+    JOIN courses c ON q.course_id = c.id
+    WHERE q.id = quiz_id
+      AND c.mentor_id = auth.uid()
+  )
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+);
+
+DROP POLICY IF EXISTS "Mentors can issue certificates" ON certificates;
+CREATE POLICY "Mentors can issue certificates" ON certificates FOR INSERT WITH CHECK (
+  auth.uid() = mentor_id
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+);
+
+DROP POLICY IF EXISTS "Mentors can review own certificate requests" ON certificate_requests;
+CREATE POLICY "Mentors can review own certificate requests" ON certificate_requests FOR UPDATE USING (
+  auth.uid() = mentor_id
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+) WITH CHECK (
+  auth.uid() = mentor_id
+  AND EXISTS (
+    SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND lower(p.role) = 'mentor'
+  )
+);
+
 -- Trigger for new user profile
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  normalized_role TEXT;
 BEGIN
-  INSERT INTO public.profiles (id, full_name, email, role)
+  normalized_role := CASE
+    WHEN LOWER(COALESCE(new.raw_user_meta_data->>'role', 'student')) LIKE 'mentor%' THEN 'mentor'
+    ELSE 'student'
+  END;
+
+  INSERT INTO public.profiles (id, full_name, email, role, institution)
   VALUES (
     new.id, 
     COALESCE(new.raw_user_meta_data->>'full_name', new.email, 'User'), 
     COALESCE(new.email, ''), 
-    COALESCE(new.raw_user_meta_data->>'role', 'student')
+    normalized_role,
+    NULLIF(TRIM(COALESCE(new.raw_user_meta_data->>'institution', '')), '')
   )
   ON CONFLICT (id) DO UPDATE
   SET 
     full_name = EXCLUDED.full_name,
     email = EXCLUDED.email,
-    role = EXCLUDED.role;
+    role = normalized_role,
+    institution = COALESCE(EXCLUDED.institution, public.profiles.institution);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Prevent users from self-changing role; allow only service role updates.
+CREATE OR REPLACE FUNCTION public.prevent_profile_role_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role AND auth.role() <> 'service_role' THEN
+    RAISE EXCEPTION 'Role can only be changed by admin';
+  END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -321,6 +517,11 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+DROP TRIGGER IF EXISTS on_profile_role_change ON public.profiles;
+CREATE TRIGGER on_profile_role_change
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE PROCEDURE public.prevent_profile_role_change();
 
 -- 16. Triggers for Counts
 
@@ -412,3 +613,63 @@ CREATE INDEX IF NOT EXISTS idx_submissions_enrollment_id ON submissions(enrollme
 CREATE INDEX IF NOT EXISTS idx_messages_from_id ON messages(from_id);
 CREATE INDEX IF NOT EXISTS idx_messages_to_id ON messages(to_id);
 CREATE INDEX IF NOT EXISTS idx_comments_video_id ON comments(video_id);
+
+-- 17. Storage for real course uploads
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('course-content', 'course-content', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- storage.objects RLS is managed by Supabase; do not ALTER here to avoid ownership errors.
+
+DROP POLICY IF EXISTS "Public can read course content" ON storage.objects;
+CREATE POLICY "Public can read course content"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'course-content');
+
+DROP POLICY IF EXISTS "Mentors can upload own course content" ON storage.objects;
+CREATE POLICY "Mentors can upload own course content"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'course-content'
+  AND EXISTS (
+    SELECT 1
+    FROM public.courses c
+    WHERE c.id::text = (storage.foldername(name))[1]
+      AND c.mentor_id = auth.uid()
+  )
+);
+
+DROP POLICY IF EXISTS "Mentors can update own course content" ON storage.objects;
+CREATE POLICY "Mentors can update own course content"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'course-content'
+  AND EXISTS (
+    SELECT 1
+    FROM public.courses c
+    WHERE c.id::text = (storage.foldername(name))[1]
+      AND c.mentor_id = auth.uid()
+  )
+)
+WITH CHECK (
+  bucket_id = 'course-content'
+  AND EXISTS (
+    SELECT 1
+    FROM public.courses c
+    WHERE c.id::text = (storage.foldername(name))[1]
+      AND c.mentor_id = auth.uid()
+  )
+);
+
+DROP POLICY IF EXISTS "Mentors can delete own course content" ON storage.objects;
+CREATE POLICY "Mentors can delete own course content"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'course-content'
+  AND EXISTS (
+    SELECT 1
+    FROM public.courses c
+    WHERE c.id::text = (storage.foldername(name))[1]
+      AND c.mentor_id = auth.uid()
+  )
+);

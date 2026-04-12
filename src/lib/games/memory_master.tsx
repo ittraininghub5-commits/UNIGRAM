@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { safeStorage as storage } from "./storage";
+import { syncGameScore } from "./scoreSync";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,12 +19,6 @@ const COLOR_EMOJI: Record<Color, string> = { red: "🔴", blue: "🔵", green: "
 const FREQUENCIES: Record<Color, number> = { red: 261.63, blue: 329.63, green: 392.0, yellow: 493.88 };
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
-
-const storage = (window as any).storage as {
-  list: (prefix: string, shared: boolean) => Promise<{ keys: string[] }>;
-  get: (key: string, shared: boolean) => Promise<{ value: string }>;
-  set: (key: string, value: string, shared: boolean) => Promise<void>;
-};
 
 async function fetchLeaderboard(): Promise<ScoreEntry[]> {
   try {
@@ -153,6 +149,12 @@ const MemoryMaster: React.FC = () => {
       try {
         const id = `memory:${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
         await storage.set(id, JSON.stringify({ name: currentPlayer, level: fl, timestamp: Date.now() }), true);
+        void syncGameScore({
+          gameType: 'memory',
+          playerName: currentPlayer,
+          score: fl,
+          metadata: { level: fl },
+        });
         await loadBoard();
       } catch {}
       setScreen("gameover");

@@ -4,7 +4,8 @@
 
 .game-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+  background: var(--bg-base);
+  color: var(--text-primary);
   padding: 0;
 }
 
@@ -13,8 +14,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 1rem 2rem;
-  background: linear-gradient(135deg, rgba(10, 14, 39, 0.95) 0%, rgba(26, 31, 58, 0.95) 100%);
-  border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+  background: var(--bg-card);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
@@ -41,7 +42,7 @@
 
 .game-header-bar h2 {
   font-size: 1.5rem;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0;
   flex: 1;
   text-align: center;

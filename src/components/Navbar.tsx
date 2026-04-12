@@ -2,7 +2,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Profile } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { User } from '@supabase/supabase-js';
-import { cn } from '@/src/lib/utils';
+import { cn, getInitials } from '@/src/lib/utils';
+import { isMentorRole } from '@/src/lib/roles';
 import { Search, MessageSquare, User as UserIcon, LayoutDashboard, LogOut, Sun, Moon } from 'lucide-react';
 import { useTheme } from '@/src/context/ThemeContext';
 import { useState, useEffect } from 'react';
@@ -125,7 +126,7 @@ export default function Navbar({ user, profile }: NavbarProps) {
                 <NavLink to="/feed" label="Feed" />
                 <NavLink to="/search" label="Search" icon={<Search className="w-4 h-4" />} />
                 <NavLink to="/messages" label="Messages" icon={<MessageSquare className="w-4 h-4" />} />
-                {profile?.role === 'mentor' && (
+                {isMentorRole(profile?.role) && (
                   <NavLink to="/dashboard" label="Dashboard" icon={<LayoutDashboard className="w-4 h-4" />} />
                 )}
                 <NavLink to={`/profile/${user.id}`} label="Profile" icon={<UserIcon className="w-4 h-4" />} />
@@ -156,20 +157,52 @@ export default function Navbar({ user, profile }: NavbarProps) {
                   Sign In
                 </Link>
                 <button
-                  onClick={() => handleSmoothScroll('roles')}
+                  onClick={() => {
+                    if (isLandingPage) {
+                      handleSmoothScroll('roles');
+                    } else {
+                      navigate('/auth?mode=register');
+                    }
+                  }}
                   className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2 rounded-lg text-sm font-bold font-display transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
                 >
                   Register
                 </button>
               </div>
             ) : (
-              <button
-                onClick={handleSignOut}
-                className="text-text-secondary hover:text-text-primary p-2 transition-colors"
-                title="Sign Out"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  to={`/profile/${user.id}`}
+                  className="w-9 h-9 rounded-full bg-gradient-to-br from-accent-teal to-accent-purple p-[2px]"
+                  title="Profile"
+                >
+                  <div className="w-full h-full rounded-full bg-bg-card overflow-hidden flex items-center justify-center text-[10px] font-bold text-accent-teal">
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt={profile.full_name || 'Profile'}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <span style={{ display: profile?.avatar_url ? 'none' : 'flex' }}>
+                      {getInitials(profile?.full_name || user.email || 'U')}
+                    </span>
+                  </div>
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="text-text-secondary hover:text-text-primary p-2 transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
             )}
           </div>
         </div>

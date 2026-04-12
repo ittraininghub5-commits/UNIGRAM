@@ -374,7 +374,7 @@ function RoleCard({ role, icon, title, description, features }: { role: 'student
       </ul>
 
       <Link
-        to={isStudent ? "/feed" : "/dashboard"}
+        to={isStudent ? "/auth?mode=register&role=student" : "/auth?mode=register&role=mentor"}
         className={cn(
           "inline-flex items-center justify-center w-full py-4 rounded-2xl font-bold font-display transition-all",
           isStudent 

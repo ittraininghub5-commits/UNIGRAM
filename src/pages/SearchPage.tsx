@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Users, BookOpen, Hash, CheckCircle2, Loader2, ArrowRight } from 'lucide-react';
+import { Search, CheckCircle2, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 import { cn, getInitials } from '@/src/lib/utils';
+import { safeNavigateBack } from '@/src/lib/navigation';
 import { supabase } from '@/src/lib/supabase';
 import { Profile, Course } from '@/src/types';
 import { toast } from 'sonner';
@@ -13,58 +14,84 @@ export default function SearchPage() {
   const [filter, setFilter] = useState('all');
   const [results, setResults] = useState<{ mentors: Profile[], courses: Course[] }>({ mentors: [], courses: [] });
   const [loading, setLoading] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const searchRequestId = useRef(0);
+
+  const totalResults = useMemo(() => results.mentors.length + results.courses.length, [results]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (query.trim()) {
-        handleSearch();
-      } else {
-        setResults({ mentors: [], courses: [] });
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
+    void handleSearch();
   }, [query, filter]);
 
   const handleSearch = async () => {
+    const requestId = ++searchRequestId.current;
+    const trimmedQuery = query.trim();
     setLoading(true);
     try {
       let mentorsData: Profile[] = [];
       let coursesData: Course[] = [];
 
       if (filter === 'all' || filter === 'mentors') {
-        const { data, error } = await supabase
+        let mentorsQuery = supabase
           .from('profiles')
           .select('*')
-          .eq('role', 'mentor')
-          .ilike('full_name', `%${query}%`)
-          .limit(5);
+          .ilike('role', 'mentor');
+
+        if (trimmedQuery) {
+          mentorsQuery = mentorsQuery.ilike('full_name', `%${trimmedQuery}%`);
+        } else {
+          mentorsQuery = mentorsQuery.order('followers_count', { ascending: false });
+        }
+
+        const { data, error } = await mentorsQuery.limit(8);
         if (error) throw error;
         mentorsData = data as Profile[];
       }
 
       if (filter === 'all' || filter === 'courses') {
-        const { data, error } = await supabase
+        let coursesQuery = supabase
           .from('courses')
           .select('*, mentor:profiles (*)')
-          .ilike('title', `%${query}%`)
-          .limit(5);
+          .eq('status', 'live');
+
+        if (trimmedQuery) {
+          coursesQuery = coursesQuery.ilike('title', `%${trimmedQuery}%`);
+        } else {
+          coursesQuery = coursesQuery.order('created_at', { ascending: false });
+        }
+
+        const { data, error } = await coursesQuery.limit(8);
         if (error) throw error;
         coursesData = data as Course[];
       }
 
+      // Ignore stale responses when a newer request is already in-flight.
+      if (requestId !== searchRequestId.current) {
+        return;
+      }
+
       setResults({ mentors: mentorsData, courses: coursesData });
+      setHasLoadedOnce(true);
     } catch (error) {
       console.error('Search error:', error);
       toast.error('Failed to fetch search results');
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestId.current) {
+        setLoading(false);
+      }
     }
   };
 
-  return (
-        <div className="pt-18 max-w-7xl mx-auto px-4 ...">
+    return (
+      <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
       <div className="space-y-6">
+        <button
+          onClick={() => safeNavigateBack(navigate, '/feed')}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-text-secondary hover:text-text-primary hover:border-white/20 transition-all"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
         <h1 className="text-3xl font-display font-extrabold tracking-tight">Search Unigram</h1>
         
         <div className="relative group">
@@ -95,12 +122,34 @@ export default function SearchPage() {
           {query ? `Results for "${query}"` : 'Popular Mentors & Courses'}
         </h3>
 
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-text-secondary">
+          <span className="px-2 py-1 rounded-lg bg-bg-card border border-white/5">{totalResults} Results</span>
+          {(filter === 'all' || filter === 'mentors') && (
+            <span className="px-2 py-1 rounded-lg bg-bg-card border border-white/5">{results.mentors.length} Mentors</span>
+          )}
+          {(filter === 'all' || filter === 'courses') && (
+            <span className="px-2 py-1 rounded-lg bg-bg-card border border-white/5">{results.courses.length} Courses</span>
+          )}
+        </div>
+
         <div className="grid gap-4">
-          <AnimatePresence mode="popLayout">
-            {results.mentors.map((mentor) => (
+          {loading && !hasLoadedOnce && (
+            <div className="space-y-3">
+              {[1, 2, 3].map((skeleton) => (
+                <div
+                  key={skeleton}
+                  className="h-[84px] bg-bg-card border border-white/5 rounded-2xl animate-pulse"
+                />
+              ))}
+            </div>
+          )}
+
+          <AnimatePresence initial={false} mode="sync">
+            {!loading && results.mentors.map((mentor) => (
               <SearchResult 
-                key={mentor.id}
+                key={`mentor-${mentor.id}`}
                 type="mentor"
+                avatarUrl={mentor.avatar_url}
                 initials={getInitials(mentor.full_name)}
                 title={mentor.full_name}
                 subtitle={`Mentor • ${mentor.institution || 'Expert Mentor'}`}
@@ -110,9 +159,9 @@ export default function SearchPage() {
                 onClick={() => navigate(`/profile/${mentor.id}`)}
               />
             ))}
-            {results.courses.map((course) => (
+            {!loading && results.courses.map((course) => (
               <SearchResult 
-                key={course.id}
+                key={`course-${course.id}`}
                 type="course"
                 icon="📚"
                 title={course.title}
@@ -125,6 +174,12 @@ export default function SearchPage() {
               <div className="text-center py-12 space-y-4">
                 <div className="text-4xl">🔍</div>
                 <p className="text-text-secondary">No results found for "{query}"</p>
+              </div>
+            )}
+            {!loading && !query && results.mentors.length === 0 && results.courses.length === 0 && (
+              <div className="text-center py-12 space-y-4">
+                <div className="text-4xl">📚</div>
+                <p className="text-text-secondary">No mentors or live courses available right now.</p>
               </div>
             )}
           </AnimatePresence>
@@ -150,21 +205,37 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
-function SearchResult({ type, icon, initials, title, subtitle, badge, color, isVerified, onClick }: any) {
+function SearchResult({ type, icon, avatarUrl, initials, title, subtitle, badge, color, isVerified, onClick }: any) {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-bg-card border border-white/5 rounded-2xl p-4 flex items-center gap-4 hover:border-accent-teal/20 transition-all cursor-pointer group"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.24, ease: 'easeOut' }}
+      className="bg-bg-card border border-white/5 rounded-2xl p-4 flex items-center gap-4 hover:border-accent-teal/20 hover:-translate-y-0.5 transition-all cursor-pointer group"
       onClick={onClick}
     >
       <div className={cn(
         "w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold shrink-0",
         color || "bg-bg-elevated text-text-secondary"
       )}>
-        {initials || icon}
+        {type === 'mentor' && avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={title}
+            className="w-full h-full rounded-xl object-cover"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+              if (fallback) fallback.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        <span style={{ display: type === 'mentor' && avatarUrl ? 'none' : 'flex' }}>
+          {initials || icon}
+        </span>
       </div>
       
       <div className="flex-1 min-w-0">

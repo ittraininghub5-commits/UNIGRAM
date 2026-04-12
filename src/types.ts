@@ -92,6 +92,21 @@ export interface Certificate {
   mentor?: Profile;
 }
 
+export interface CertificateRequest {
+  id: string;
+  enrollment_id: string;
+  student_id: string;
+  mentor_id: string;
+  course_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+  reviewed_at: string | null;
+  mentor_notes: string | null;
+  student?: Profile;
+  mentor?: Profile;
+  course?: Course;
+}
+
 export interface Submission {
   id: string;
   enrollment_id: string;

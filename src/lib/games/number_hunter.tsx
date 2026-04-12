@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { safeStorage as storage } from "./storage";
+import { syncGameScore } from "./scoreSync";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,12 +18,6 @@ interface GuessBadge {
 }
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
-
-const storage = (window as any).storage as {
-  list: (prefix: string, shared: boolean) => Promise<{ keys: string[] }>;
-  get: (key: string, shared: boolean) => Promise<{ value: string }>;
-  set: (key: string, value: string, shared: boolean) => Promise<void>;
-};
 
 async function fetchLeaderboard(prefix: string): Promise<ScoreEntry[]> {
   try {
@@ -168,6 +164,12 @@ const NumberHunter: React.FC = () => {
     setScreen("gameover");
     setFinalScore(score);
     await persistScore("hunter:", { name: currentPlayer, score, timestamp: Date.now() });
+    void syncGameScore({
+      gameType: 'hunter',
+      playerName: currentPlayer,
+      score,
+      metadata: { unit: 'points' },
+    });
     await loadBoard();
   }, [score, currentPlayer, loadBoard]);
 

@@ -67,8 +67,8 @@ Generates a PDF certificate of completion, uploads it to Supabase storage, and r
 
 ---
 
-## 3. AI Services (Gemini API)
-The platform integrates Google's Gemini AI to provide several essential educational features. These are handled client-side using the `@google/generative-ai` SDK.
+## 3. AI Services (Hugging Face/Open-Source)
+The platform uses Hugging Face inference models and open-source fallbacks to provide essential educational AI features.
 
 - **AI Chat Assistant:** A global floating chat interface for general educational queries.
 - **AI Study Plan:** Generates personalized learning paths based on user goals and experience level.
@@ -84,7 +84,7 @@ To ensure these APIs and features function correctly, the following environment 
 
 - `VITE_SUPABASE_URL`: Your Supabase project URL.
 - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase service role key (for storage/db access).
-- `VITE_GEMINI_API_KEY`: Your Google Gemini API Key (Required for all AI features).
+- `VITE_HUGGING_FACE_API_KEY`: Your Hugging Face API Key (used for summaries, quiz generation, and tags).
 - `EMAIL_USER`: SMTP email address for Nodemailer.
 - `EMAIL_PASS`: SMTP password for Nodemailer.
 - `EMAIL_HOST`: SMTP host (e.g., `smtp.gmail.com`).

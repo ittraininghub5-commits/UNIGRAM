@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { safeStorage as storage } from "./storage";
+import { syncGameScore } from "./scoreSync";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,12 +20,6 @@ interface PlayerStats {
 }
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
-
-const storage = (window as any).storage as {
-  list: (prefix: string, shared: boolean) => Promise<{ keys: string[] }>;
-  get: (key: string, shared: boolean) => Promise<{ value: string }>;
-  set: (key: string, value: string, shared: boolean) => Promise<void>;
-};
 
 async function fetchLeaderboard(): Promise<ReactionScore[]> {
   try {
@@ -107,6 +103,12 @@ const ReactionGame: React.FC = () => {
         time: reactionTime,
         timestamp: Date.now(),
       }), true).then(loadBoard);
+      void syncGameScore({
+        gameType: 'reaction',
+        playerName: currentPlayerRef.current,
+        score: reactionTime,
+        metadata: { unit: 'ms' },
+      });
     }
   }, [gameState, initRound, loadBoard]);
 

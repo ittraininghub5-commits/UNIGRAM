@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import '../styles/GamesPage.css';
+import { safeStorage } from '@/src/lib/games/storage';
+import { supabase } from '@/src/lib/supabase';
+import { safeNavigateBack } from '@/src/lib/navigation';
 interface GameCard {
   id: string;
   name: string;
@@ -21,6 +25,13 @@ interface PlayerRank {
   currentRank: number;
   totalPlayers: number;
   bestScore: string | number;
+}
+
+interface GameScoreRow {
+  player_name: string;
+  game_type: 'reaction' | 'typing' | 'memory' | 'hunter';
+  score: number;
+  created_at: string;
 }
 
 const GamesPage: React.FC = () => {
@@ -70,42 +81,75 @@ const GamesPage: React.FC = () => {
 
   useEffect(() => {
     loadGameData();
+
+    const channel = supabase
+      .channel('game-scores-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_scores' }, () => {
+        void loadGameData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadGameData = async () => {
     try {
-      // Load all game scores from storage
       const allScores: LeaderboardEntry[] = [];
 
-      // Fetch scores from different games
-      const games_keys = ['score:', 'typing:', 'memory:', 'hunter:'];
+      // Try Supabase realtime scores first
+      const { data: liveScores, error: liveScoresError } = await supabase
+        .from('game_scores')
+        .select('player_name, game_type, score, created_at')
+        .order('score', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(200);
 
-      for (const prefix of games_keys) {
-        try {
-          const result = await (window as any).storage?.list(prefix, true);
-          if (result?.keys?.length > 0) {
-            for (const key of result.keys) {
-              try {
-                const data = await (window as any).storage?.get(key, true);
-                if (data?.value) {
-                  const scoreData = JSON.parse(data.value);
-                  const gameType = key.split(':')[0] === 'score' ? 'Reaction' : 
-                                   key.split(':')[0] === 'typing' ? 'Typing' :
-                                   key.split(':')[0] === 'memory' ? 'Memory' : 'Hunter';
-                  allScores.push({
-                    rank: 0,
-                    name: scoreData.name,
-                    score: scoreData.time || scoreData.wpm || scoreData.level || scoreData.score,
-                    game: gameType,
-                  });
+      if (!liveScoresError && (liveScores || []).length > 0) {
+        (liveScores as GameScoreRow[]).forEach((row) => {
+          allScores.push({
+            rank: 0,
+            name: row.player_name,
+            score: row.score,
+            game:
+              row.game_type === 'reaction' ? 'Reaction' :
+              row.game_type === 'typing' ? 'Typing' :
+              row.game_type === 'memory' ? 'Memory' :
+              'Hunter',
+          });
+        });
+      } else {
+        // Fallback to local storage scores
+        const games_keys = ['score:', 'typing:', 'memory:', 'hunter:'];
+
+        for (const prefix of games_keys) {
+          try {
+            const result = await safeStorage.list(prefix, true);
+            if (result?.keys?.length > 0) {
+              for (const key of result.keys) {
+                try {
+                  const data = await safeStorage.get(key, true);
+                  if (data?.value) {
+                    const scoreData = JSON.parse(data.value);
+                    const gameType = key.split(':')[0] === 'score' ? 'Reaction' :
+                                    key.split(':')[0] === 'typing' ? 'Typing' :
+                                    key.split(':')[0] === 'memory' ? 'Memory' : 'Hunter';
+                    allScores.push({
+                      rank: 0,
+                      name: scoreData.name,
+                      score: scoreData.time || scoreData.wpm || scoreData.level || scoreData.score,
+                      game: gameType,
+                    });
+                  }
+                } catch (e) {
+                  console.error('Error loading score:', e);
                 }
-              } catch (e) {
-                console.error('Error loading score:', e);
               }
             }
+          } catch {
+            // No scores for this game yet
           }
-        } catch (err) {
-          // No scores for this game yet
         }
       }
 
@@ -123,7 +167,7 @@ const GamesPage: React.FC = () => {
 
       setLeaderboard(topScores);
 
-      // Calculate player rank (this would typically come from auth/user context)
+      // Calculate player rank
       const currentPlayer = localStorage.getItem('currentPlayer') || 'Guest';
       const playerScores = allScores.filter((s) => s.name === currentPlayer);
       const bestScore = playerScores.length > 0 ? Math.max(...playerScores.map(s => typeof s.score === 'number' ? s.score : 0)) : 0;
@@ -149,6 +193,14 @@ const GamesPage: React.FC = () => {
   return (
     <div className="games-page">
       <div className="games-container">
+        <button
+          onClick={() => safeNavigateBack(navigate, '/feed')}
+          className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-text-secondary hover:text-text-primary hover:border-white/20 transition-all"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+
         {/* Header Section */}
         <div className="games-header">
           <h1>Games Arena</h1>
@@ -207,7 +259,7 @@ const GamesPage: React.FC = () => {
                 {leaderboard.map((entry) => (
                   <div key={`${entry.rank}-${entry.name}`} className="leaderboard-item">
                     <div className="rank-column">
-                      <span className={`rank-badge rank-${entry.rank}`}>
+                      <span className={`leaderboard-rank-badge rank-${entry.rank}`}>
                         {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`}
                       </span>
                     </div>

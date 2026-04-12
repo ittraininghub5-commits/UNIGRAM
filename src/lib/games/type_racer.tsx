@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { safeStorage as storage } from "./storage";
+import { syncGameScore } from "./scoreSync";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,12 +32,6 @@ const TEXTS = [
 ];
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
-
-const storage = (window as any).storage as {
-  list: (prefix: string, shared: boolean) => Promise<{ keys: string[] }>;
-  get: (key: string, shared: boolean) => Promise<{ value: string }>;
-  set: (key: string, value: string, shared: boolean) => Promise<void>;
-};
 
 async function fetchLeaderboard(): Promise<TypingScore[]> {
   try {
@@ -118,6 +114,12 @@ const TypeRacer: React.FC = () => {
       accuracy: finalAccVal,
       timestamp: Date.now(),
     }), true).then(loadBoard);
+    void syncGameScore({
+      gameType: 'typing',
+      playerName: currentPlayerRef.current,
+      score: finalWpmVal,
+      metadata: { accuracy: finalAccVal, correctChars: correct },
+    });
   }, [loadBoard]);
 
   const setupRace = useCallback(() => {

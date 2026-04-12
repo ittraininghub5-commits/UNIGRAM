@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Profile, Video, Enrollment } from '@/src/types';
+import { Profile, Video, Enrollment, Course } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
-import { getAIInsightForVideo, generateAIInsight, AIInsight as AIInsightType } from '@/src/services/aiService';
+import { getAIInsightForVideo, generateAIInsight, AIInsight as AIInsightType, generateCourseMetadataFromTitle } from '@/src/services/aiService';
 import { cn, getInitials } from '@/src/lib/utils';
 import { Heart, MessageCircle, Share2, Play, Plus, BookOpen, Trophy, Search, Bell, Settings, CheckCircle2, ChevronRight, Sparkles, Loader2, Gamepad2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,106 +14,416 @@ interface FeedPageProps {
 
 export default function FeedPage({ profile }: FeedPageProps) {
   const navigate = useNavigate();
+  const createPostSectionRef = useRef<HTMLDivElement | null>(null);
+  const createPostTitleRef = useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState('For You');
   const [videos, setVideos] = useState<Video[]>([]);
+  const [courseFeed, setCourseFeed] = useState<Course[]>([]);
+  const [mentorOwnedCourses, setMentorOwnedCourses] = useState<Course[]>([]);
   const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
   const [mentors, setMentors] = useState<Profile[]>([]);
+  const [followedMentorIds, setFollowedMentorIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [glimpseTitle, setGlimpseTitle] = useState('');
+  const [glimpseDescription, setGlimpseDescription] = useState('');
+  const [glimpseCourseId, setGlimpseCourseId] = useState('');
+  const [publishingGlimpse, setPublishingGlimpse] = useState(false);
+  const [generatingGlimpseDraft, setGeneratingGlimpseDraft] = useState(false);
+  const [hasAutoDraftedGlimpse, setHasAutoDraftedGlimpse] = useState(false);
+  const [showCreatePostComposer, setShowCreatePostComposer] = useState(false);
 
-  useEffect(() => {
-    // Fetch Mentors
-    const fetchMentors = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'mentor')
-        .limit(5);
-      
-      if (error) {
-        console.error('Error fetching mentors:', error);
-      } else {
-        setMentors(data as Profile[]);
-      }
+  const trendingTopics = useMemo(() => {
+    const tagCounts = new Map<string, number>();
+
+    const collectTags = (tags?: string[] | null) => {
+      tags?.forEach((rawTag) => {
+        const tag = rawTag.trim();
+        if (!tag) return;
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
     };
 
-    fetchMentors();
+    videos.forEach((video) => collectTags(video.course?.tags));
+    courseFeed.forEach((course) => collectTags(course.tags));
+    enrolledCourses.forEach((enrollment) => collectTags(enrollment.course?.tags));
+
+    return [...tagCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([tag]) => tag);
+  }, [videos, courseFeed, enrolledCourses]);
+
+  const feedItems = useMemo(() => {
+    const videoItems = videos.map((video) => ({
+      type: 'video' as const,
+      id: `video-${video.id}`,
+      createdAt: video.created_at,
+      video,
+    }));
+
+    const courseItems = courseFeed.map((course) => ({
+      type: 'course' as const,
+      id: `course-${course.id}`,
+      createdAt: course.created_at,
+      course,
+    }));
+
+    return [...videoItems, ...courseItems]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 20);
+  }, [videos, courseFeed]);
+
+  const fetchMentors = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .ilike('role', 'mentor')
+      .limit(8);
+
+    if (error) {
+      console.error('Error fetching mentors:', error);
+      return;
+    }
+
+    setMentors((data || []) as Profile[]);
   }, []);
 
+  const fetchFollows = useCallback(async () => {
+    if (!profile?.id) {
+      setFollowedMentorIds(new Set());
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', profile.id);
+
+    if (error) {
+      console.error('Error fetching follow state:', error);
+      return;
+    }
+
+    setFollowedMentorIds(new Set((data || []).map((row: any) => row.following_id)));
+  }, [profile?.id]);
+
+  const fetchEnrollments = useCallback(async () => {
+    if (!profile?.id) {
+      setEnrolledCourses([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select(`
+        *,
+        course:courses (
+          *,
+          mentor:profiles (*)
+        )
+      `)
+      .eq('student_id', profile.id)
+      .order('enrolled_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching enrollments:', error);
+      return;
+    }
+
+    setEnrolledCourses(data || []);
+  }, [profile?.id]);
+
+  const fetchVideos = useCallback(async () => {
+    let query = supabase
+      .from('videos')
+      .select(`
+        *,
+        mentor:profiles (*),
+        course:courses (*)
+      `)
+      .eq('course.status', 'live');
+
+    if (activeTab === 'Following') {
+      const followedIds = [...followedMentorIds];
+      if (followedIds.length === 0) {
+        setVideos([]);
+        return;
+      }
+      query = query.in('mentor_id', followedIds);
+    }
+
+    if (activeTab === 'Trending') {
+      query = query.order('likes_count', { ascending: false });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data, error } = await query.limit(10);
+
+    if (error) {
+      console.error('Error fetching videos:', error);
+      return;
+    }
+
+    setVideos((data || []) as Video[]);
+  }, [activeTab, followedMentorIds]);
+
+  const fetchCourseFeed = useCallback(async () => {
+    let query = supabase
+      .from('courses')
+      .select(`
+        *,
+        mentor:profiles (*)
+      `)
+      .eq('status', 'live');
+
+    if (activeTab === 'Following') {
+      const followedIds = [...followedMentorIds];
+      if (followedIds.length === 0) {
+        setCourseFeed([]);
+        return;
+      }
+      query = query.in('mentor_id', followedIds);
+    }
+
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query.limit(10);
+
+    if (error) {
+      console.error('Error fetching course feed:', error);
+      return;
+    }
+
+    setCourseFeed((data || []) as Course[]);
+  }, [activeTab, followedMentorIds]);
+
+  const fetchMentorOwnedCourses = useCallback(async () => {
+    if (!profile?.id || profile.role !== 'mentor') {
+      setMentorOwnedCourses([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id, title, description, tags, thumbnail_url, mentor_id, status, modules_count, videos_count, ai_processed, created_at, updated_at')
+      .eq('mentor_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('Error fetching mentor courses:', error);
+      return;
+    }
+
+    setMentorOwnedCourses((data || []) as Course[]);
+  }, [profile?.id, profile?.role]);
+
   useEffect(() => {
-    setLoading(true);
-    
+    void fetchMentors();
+  }, [fetchMentors]);
+
+  useEffect(() => {
     const fetchData = async () => {
-      if (activeTab === 'My Courses') {
-        if (profile) {
-          const { data, error } = await supabase
-            .from('enrollments')
-            .select(`
-              *,
-              course:courses (
-                *,
-                mentor:profiles (*)
-              )
-            `)
-            .eq('student_id', profile.id)
-            .order('enrolled_at', { ascending: false });
+      setLoading(true);
+      try {
+        await fetchEnrollments();
 
-          if (error) {
-            console.error('Error fetching enrollments:', error);
-          } else {
-            setEnrolledCourses(data);
-          }
-        }
-        setLoading(false);
-      } else {
-        let query = supabase
-          .from('videos')
-          .select(`
-            *,
-            mentor:profiles (*),
-            course:courses (*)
-          `);
-
-        if (activeTab === 'Trending') {
-          query = query.order('likes_count', { ascending: false });
+        if (activeTab === 'My Courses') {
+          setVideos([]);
+          setCourseFeed([]);
         } else {
-          query = query.order('created_at', { ascending: false });
+          await Promise.all([fetchVideos(), fetchCourseFeed()]);
         }
-
-        const { data, error } = await query.limit(10);
-
-        if (error) {
-          console.error('Error fetching videos:', error);
-        } else {
-          setVideos(data as Video[]);
-        }
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    void fetchData();
+  }, [activeTab, fetchCourseFeed, fetchEnrollments, fetchVideos]);
 
-    // Set up real-time subscription for videos
-    const subscription = supabase
-      .channel('public:videos')
+  useEffect(() => {
+    void fetchMentorOwnedCourses();
+  }, [fetchMentorOwnedCourses]);
+
+  useEffect(() => {
+    void fetchFollows();
+  }, [fetchFollows]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`feed-realtime-${profile?.id || 'guest'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'videos' }, () => {
-        fetchData();
+        if (activeTab !== 'My Courses') {
+          void fetchVideos();
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'courses' }, () => {
+        if (activeTab !== 'My Courses') {
+          void Promise.all([fetchVideos(), fetchCourseFeed()]);
+        }
+        void fetchMentorOwnedCourses();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        void fetchMentors();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'follows' }, () => {
+        void fetchFollows();
+        if (activeTab === 'Following') {
+          void Promise.all([fetchVideos(), fetchCourseFeed()]);
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'enrollments' }, () => {
+        void fetchEnrollments();
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(subscription);
+      supabase.removeChannel(channel);
     };
-  }, [activeTab, profile]);
+  }, [activeTab, fetchCourseFeed, fetchEnrollments, fetchFollows, fetchMentorOwnedCourses, fetchMentors, fetchVideos, profile?.id]);
 
-  return (
-        <div className="pt-18 max-w-7xl mx-auto px-4 ...">
+  const handleCreateGlimpsePost = async () => {
+    if (!profile?.id || profile.role !== 'mentor') {
+      toast.error('Only mentors can create feed posts.');
+      return;
+    }
+
+    const title = glimpseTitle.trim();
+    const description = glimpseDescription.trim();
+    if (!title || !description) {
+      toast.error('Add both title and post content.');
+      return;
+    }
+
+    setPublishingGlimpse(true);
+    try {
+      const { error } = await supabase
+        .from('videos')
+        .insert({
+          mentor_id: profile.id,
+          course_id: glimpseCourseId || null,
+          title,
+          description,
+          video_url: null,
+          thumbnail_url: null,
+          duration_sec: null,
+          likes_count: 0,
+          comments_count: 0,
+        });
+
+      if (error) throw error;
+
+      setGlimpseTitle('');
+      setGlimpseDescription('');
+      setGlimpseCourseId('');
+      setHasAutoDraftedGlimpse(false);
+      toast.success('Feed post published to follower feeds.');
+      await Promise.all([fetchVideos(), fetchCourseFeed()]);
+    } catch (error: any) {
+      console.error('Error publishing glimpse:', error);
+      toast.error(error.message || 'Unable to publish feed post.');
+    } finally {
+      setPublishingGlimpse(false);
+    }
+  };
+
+  const handleAutoGenerateGlimpseDraft = async () => {
+    if (generatingGlimpseDraft || hasAutoDraftedGlimpse || glimpseDescription.trim()) {
+      return;
+    }
+
+    const selectedCourse = mentorOwnedCourses.find((course) => course.id === glimpseCourseId);
+    const draftSeed = glimpseTitle.trim() || selectedCourse?.title?.trim() || 'Mentor quick learning update';
+
+    setGeneratingGlimpseDraft(true);
+    try {
+      const { description } = await generateCourseMetadataFromTitle(draftSeed);
+      const cleanDescription = description.trim();
+      if (cleanDescription) {
+        setGlimpseDescription(cleanDescription);
+        setHasAutoDraftedGlimpse(true);
+      }
+    } catch (error) {
+      console.error('Error generating quick update draft:', error);
+    } finally {
+      setGeneratingGlimpseDraft(false);
+    }
+  };
+
+  const handleToggleFollow = async (mentorId: string) => {
+    if (!profile?.id) {
+      navigate('/auth');
+      return;
+    }
+
+    const isFollowing = followedMentorIds.has(mentorId);
+    try {
+      if (isFollowing) {
+        const { error } = await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_id', profile.id)
+          .eq('following_id', mentorId);
+
+        if (error) throw error;
+        setFollowedMentorIds((prev) => {
+          const next = new Set(prev);
+          next.delete(mentorId);
+          return next;
+        });
+      } else {
+        const { error } = await supabase
+          .from('follows')
+          .insert({ follower_id: profile.id, following_id: mentorId });
+
+        if (error) throw error;
+        setFollowedMentorIds((prev) => new Set(prev).add(mentorId));
+      }
+    } catch (error: any) {
+      console.error('Follow toggle error:', error);
+      toast.error(error.message || 'Could not update follow status.');
+    }
+  };
+
+  const handleOpenCreatePost = () => {
+    if (profile?.role !== 'mentor') {
+      return;
+    }
+
+    setShowCreatePostComposer(true);
+    window.setTimeout(() => {
+      createPostSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      createPostTitleRef.current?.focus();
+    }, 250);
+  };
+
+    return (
+      <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-8 items-start">
         
         {/* Left Sidebar */}
         <aside className="hidden lg:block sticky top-24 space-y-6">
           <div className="bg-bg-card border border-white/5 rounded-2xl p-6 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-accent-teal to-accent-purple flex items-center justify-center mx-auto text-xl font-bold text-bg-base">
-              {profile ? getInitials(profile.full_name) : '??'}
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-accent-teal to-accent-purple p-[2px] mx-auto">
+              <div className="w-full h-full rounded-full bg-bg-card overflow-hidden flex items-center justify-center text-xl font-bold text-accent-teal">
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.full_name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <span style={{ display: profile?.avatar_url ? 'none' : 'flex' }}>
+                  {profile ? getInitials(profile.full_name) : '??'}
+                </span>
+              </div>
             </div>
             <div className="space-y-1">
               <h3 className="font-display font-bold text-sm">{profile?.full_name}</h3>
@@ -129,12 +439,14 @@ export default function FeedPage({ profile }: FeedPageProps) {
           </div>
 
           <nav className="bg-bg-card border border-white/5 rounded-2xl overflow-hidden">
-            <SidebarNavItem 
-              icon={<Plus className="w-4 h-4" />} 
-              label="Feed" 
-              active 
-              onClick={() => navigate('/feed')}
-            />
+            {profile?.role !== 'student' && (
+              <SidebarNavItem 
+                icon={<Plus className="w-4 h-4" />} 
+                label="Create Post" 
+                active 
+                onClick={handleOpenCreatePost}
+              />
+            )}
             <SidebarNavItem 
               icon={<BookOpen className="w-4 h-4" />} 
               label="My Courses"
@@ -170,18 +482,95 @@ export default function FeedPage({ profile }: FeedPageProps) {
 
         {/* Main Feed */}
         <div className="space-y-8">
+          {profile?.role === 'mentor' && showCreatePostComposer && (
+            <div ref={createPostSectionRef} className="bg-bg-card border border-white/5 rounded-3xl p-5 space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <h3 className="text-sm font-display font-bold">Create Feed Post</h3>
+                <button
+                  onClick={() => setShowCreatePostComposer(false)}
+                  className="text-[10px] font-bold text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Hide
+                </button>
+              </div>
+              <input
+                ref={createPostTitleRef}
+                value={glimpseTitle}
+                onChange={(e) => setGlimpseTitle(e.target.value)}
+                placeholder="Post title"
+                className="w-full bg-bg-elevated border border-white/5 rounded-xl py-3 px-4 text-sm outline-none focus:border-accent-teal"
+              />
+              <textarea
+                value={glimpseDescription}
+                onChange={(e) => setGlimpseDescription(e.target.value)}
+                onFocus={() => {
+                  void handleAutoGenerateGlimpseDraft();
+                }}
+                placeholder="Share a quick update, teaser, or learning post..."
+                className="w-full bg-bg-elevated border border-white/5 rounded-xl py-3 px-4 text-sm outline-none focus:border-accent-teal min-h-[96px]"
+              />
+              {generatingGlimpseDraft && (
+                <p className="text-[11px] text-text-secondary flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  AI is drafting a quick update...
+                </p>
+              )}
+              <select
+                value={glimpseCourseId}
+                onChange={(e) => setGlimpseCourseId(e.target.value)}
+                className="w-full bg-bg-elevated border border-white/5 rounded-xl py-3 px-4 text-sm outline-none focus:border-accent-teal"
+              >
+                <option value="">No linked course (general update)</option>
+                {mentorOwnedCourses.map((course) => (
+                  <option key={course.id} value={course.id}>{course.title}</option>
+                ))}
+              </select>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleCreateGlimpsePost}
+                  disabled={publishingGlimpse}
+                  className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+                >
+                  {publishingGlimpse ? 'Publishing...' : 'Publish Feed Post'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Stories */}
           <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-            {MOCK_STORIES.map((story, i) => (
-              <button key={i} className="flex-shrink-0 group space-y-2 text-center w-20">
+            {(mentors.length > 0 ? mentors.slice(0, 6) : []).map((mentor) => (
+              <button
+                key={mentor.id}
+                className="flex-shrink-0 group space-y-2 text-center w-20"
+                onClick={() => navigate(`/profile/${mentor.id}`)}
+              >
                 <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-accent-teal to-accent-purple group-hover:scale-105 transition-transform">
-                  <div className="w-full h-full rounded-full bg-bg-card border-2 border-bg-base flex items-center justify-center text-2xl">
-                    {story.emoji}
+                  <div className="w-full h-full rounded-full overflow-hidden bg-bg-card border-2 border-bg-base flex items-center justify-center text-xl font-bold text-accent-teal">
+                    {mentor.avatar_url ? (
+                      <img
+                        src={mentor.avatar_url}
+                        alt={mentor.full_name}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <span style={{ display: mentor.avatar_url ? 'none' : 'flex' }}>
+                      {getInitials(mentor.full_name)}
+                    </span>
                   </div>
                 </div>
-                <p className="text-[10px] text-text-secondary truncate">{story.name}</p>
+                <p className="text-[10px] text-text-secondary truncate">{mentor.full_name}</p>
               </button>
             ))}
+            {mentors.length === 0 && (
+              <p className="text-[10px] text-text-muted py-4">No live mentor stories yet.</p>
+            )}
           </div>
 
           {/* Tabs */}
@@ -189,7 +578,13 @@ export default function FeedPage({ profile }: FeedPageProps) {
             {['For You', 'Following', 'Trending', 'My Courses', 'Quiz'].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  if (tab === 'Quiz') {
+                    navigate('/quiz');
+                    return;
+                  }
+                  setActiveTab(tab);
+                }}
                 className={cn(
                   "flex-1 py-2 rounded-xl text-xs font-medium transition-all",
                   activeTab === tab ? "bg-bg-elevated text-text-primary" : "text-text-secondary hover:text-text-primary"
@@ -226,10 +621,40 @@ export default function FeedPage({ profile }: FeedPageProps) {
                   </button>
                 </div>
               )
-            ) : (
-              videos.map((video) => (
-                <PostCard key={video.id} video={video} />
+            ) : feedItems.length > 0 ? (
+              feedItems.map((item) => (
+                item.type === 'video' ? (
+                  <PostCard
+                    key={item.id}
+                    video={item.video}
+                    isFollowingMentor={!!item.video.mentor?.id && followedMentorIds.has(item.video.mentor.id)}
+                    onToggleFollow={handleToggleFollow}
+                    viewerRole={profile?.role}
+                  />
+                ) : (
+                  <CourseAnnouncementCard
+                    key={item.id}
+                    course={item.course}
+                    isFollowingMentor={!!item.course.mentor?.id && followedMentorIds.has(item.course.mentor.id)}
+                    onToggleFollow={handleToggleFollow}
+                    viewerRole={profile?.role}
+                  />
+                )
               ))
+            ) : (
+              <div className="bg-bg-card border border-white/5 rounded-3xl p-20 text-center space-y-4">
+                <div className="w-20 h-20 bg-bg-elevated rounded-full flex items-center justify-center mx-auto text-3xl">🎥</div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-display font-bold">
+                    {activeTab === 'Following' ? 'No posts from followed mentors yet' : 'No live posts yet'}
+                  </h3>
+                  <p className="text-text-secondary text-sm">
+                    {activeTab === 'Following'
+                      ? 'Follow mentors to get their latest course content here in realtime.'
+                      : 'Mentor uploads will appear here automatically.'}
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -242,8 +667,23 @@ export default function FeedPage({ profile }: FeedPageProps) {
               {mentors.length > 0 ? mentors.map((mentor) => (
                 <div key={mentor.id} className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className={cn("w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs bg-accent-teal/10 text-accent-teal")}>
-                      {getInitials(mentor.full_name)}
+                    <div className={cn("w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs bg-accent-teal/10 text-accent-teal")}>
+                      {mentor.avatar_url ? (
+                        <img
+                          src={mentor.avatar_url}
+                          alt={mentor.full_name}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <span style={{ display: mentor.avatar_url ? 'none' : 'flex' }}>
+                        {getInitials(mentor.full_name)}
+                      </span>
                     </div>
                     <div>
                       <div className="flex items-center gap-1">
@@ -255,8 +695,11 @@ export default function FeedPage({ profile }: FeedPageProps) {
                       <p className="text-[10px] text-text-secondary truncate max-w-[120px]">{mentor.institution || 'Expert Mentor'}</p>
                     </div>
                   </div>
-                  <button className="text-[10px] font-bold text-accent-teal bg-accent-teal/10 px-3 py-1.5 rounded-lg hover:bg-accent-teal hover:text-bg-base transition-all">
-                    Follow
+                  <button
+                    onClick={() => handleToggleFollow(mentor.id)}
+                    className="text-[10px] font-bold text-accent-teal bg-accent-teal/10 px-3 py-1.5 rounded-lg hover:bg-accent-teal hover:text-bg-base transition-all"
+                  >
+                    {followedMentorIds.has(mentor.id) ? 'Following' : 'Follow'}
                   </button>
                 </div>
               )) : (
@@ -285,11 +728,14 @@ export default function FeedPage({ profile }: FeedPageProps) {
           <div className="bg-bg-card border border-white/5 rounded-2xl p-6 space-y-4">
             <h3 className="text-[10px] font-mono text-text-muted uppercase tracking-[0.2em]">Trending Topics</h3>
             <div className="flex flex-wrap gap-2">
-              {['System Design', 'Machine Learning', 'React', 'Supabase', 'TypeScript', 'DSA', 'Cloud'].map(topic => (
+              {trendingTopics.map(topic => (
                 <span key={topic} className="px-3 py-1 rounded-lg bg-bg-elevated border border-white/5 text-[10px] text-text-secondary hover:text-accent-teal hover:border-accent-teal/30 cursor-pointer transition-all">
                   {topic}
                 </span>
               ))}
+              {trendingTopics.length === 0 && (
+                <p className="text-[10px] text-text-muted">No trending topics yet.</p>
+              )}
             </div>
           </div>
         </aside>
@@ -348,11 +794,24 @@ function EnrolledCourseCard({ enrollment }: { enrollment: Enrollment }) {
             </Link>
 
             <div className="flex items-center gap-3">
-              <img 
-                src={course.mentor?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${course.mentor?.id}`} 
-                className="w-5 h-5 rounded-full"
-                referrerPolicy="no-referrer"
-              />
+              <div className="w-5 h-5 rounded-full overflow-hidden bg-accent-teal/20 flex items-center justify-center text-[8px] font-bold text-accent-teal">
+                {course.mentor?.avatar_url ? (
+                  <img
+                    src={course.mentor.avatar_url}
+                    className="w-full h-full rounded-full object-cover"
+                    referrerPolicy="no-referrer"
+                    alt={course.mentor?.full_name || 'Mentor'}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <span style={{ display: course.mentor?.avatar_url ? 'none' : 'flex' }}>
+                  {getInitials(course.mentor?.full_name || 'Mentor')}
+                </span>
+              </div>
               <span className="text-xs text-text-secondary">{course.mentor?.full_name}</span>
             </div>
           </div>
@@ -421,11 +880,31 @@ function SidebarNavItem({
   );
 }
 
-function PostCard({ video }: { video: Video }) {
+function PostCard({
+  video,
+  isFollowingMentor,
+  onToggleFollow,
+  viewerRole,
+}: {
+  video: Video;
+  isFollowingMentor: boolean;
+  onToggleFollow: (mentorId: string) => Promise<void>;
+  viewerRole?: 'student' | 'mentor';
+}) {
+  const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [insight, setInsight] = useState<AIInsightType | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [showInsight, setShowInsight] = useState(false);
+  const studentCardClickable = viewerRole === 'student' && !!video.course_id;
+
+  const formattedDuration = useMemo(() => {
+    const total = video.duration_sec || 0;
+    if (total <= 0) return '--:--';
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }, [video.duration_sec]);
 
   useEffect(() => {
     if (video.id) {
@@ -454,12 +933,35 @@ function PostCard({ video }: { video: Video }) {
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="bg-bg-card border border-white/5 rounded-3xl overflow-hidden group"
+      className={cn(
+        "bg-bg-card border border-white/5 rounded-3xl overflow-hidden group",
+        studentCardClickable && "cursor-pointer"
+      )}
+      onClick={() => {
+        if (studentCardClickable) {
+          navigate(`/course/${video.course_id}`);
+        }
+      }}
     >
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-accent-teal/20 flex items-center justify-center text-xs font-bold text-accent-teal">
-            {video.mentor ? getInitials(video.mentor.full_name) : '??'}
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-accent-teal/20 flex items-center justify-center text-xs font-bold text-accent-teal">
+            {video.mentor?.avatar_url ? (
+              <img
+                src={video.mentor.avatar_url}
+                alt={video.mentor.full_name}
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <span style={{ display: video.mentor?.avatar_url ? 'none' : 'flex' }}>
+              {video.mentor ? getInitials(video.mentor.full_name) : '??'}
+            </span>
           </div>
           <div>
             <p className="text-sm font-bold flex items-center gap-1">
@@ -473,9 +975,29 @@ function PostCard({ video }: { video: Video }) {
             </p>
           </div>
         </div>
-        <button className="text-[10px] font-bold text-accent-teal border border-accent-teal/20 px-4 py-1.5 rounded-xl hover:bg-accent-teal hover:text-bg-base transition-all">
-          + Follow
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (video.mentor?.id) {
+              void onToggleFollow(video.mentor.id);
+            }
+          }}
+          disabled={!video.mentor?.id}
+          className="text-[10px] font-bold text-accent-teal border border-accent-teal/20 px-4 py-1.5 rounded-xl hover:bg-accent-teal hover:text-bg-base transition-all disabled:opacity-50"
+        >
+          {isFollowingMentor ? 'Following' : '+ Follow'}
         </button>
+        {isFollowingMentor && video.mentor?.id && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/messages?thread=${video.mentor?.id}`);
+            }}
+            className="text-[10px] font-bold text-text-secondary border border-white/10 px-4 py-1.5 rounded-xl hover:bg-white/5 transition-all"
+          >
+            Message
+          </button>
+        )}
       </div>
 
       <div className="aspect-video bg-bg-elevated relative group/video cursor-pointer overflow-hidden">
@@ -491,16 +1013,22 @@ function PostCard({ video }: { video: Video }) {
           </span>
         </div>
         <div className="absolute bottom-4 right-4 px-2 py-1 rounded bg-black/60 text-[10px] font-mono text-white">
-          05:42
+          {formattedDuration}
         </div>
       </div>
 
       <div className="p-6 space-y-4">
-        <Link to={`/course/${video.course_id}`} className="block group/title">
-          <h3 className="text-xl font-display font-bold leading-tight group-hover/title:text-accent-teal transition-colors">
+        {video.course_id ? (
+          <Link to={`/course/${video.course_id}`} className="block group/title">
+            <h3 className="text-xl font-display font-bold leading-tight group-hover/title:text-accent-teal transition-colors">
+              {video.title}
+            </h3>
+          </Link>
+        ) : (
+          <h3 className="text-xl font-display font-bold leading-tight">
             {video.title}
           </h3>
-        </Link>
+        )}
         <p className="text-sm text-text-secondary leading-relaxed line-clamp-2">
           {video.description}
         </p>
@@ -568,24 +1096,157 @@ function PostCard({ video }: { video: Video }) {
       <div className="px-6 py-4 border-t border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => setLiked(!liked)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setLiked(!liked);
+            }}
             className={cn("flex items-center gap-2 text-xs transition-colors", liked ? "text-pink-500" : "text-text-secondary hover:text-text-primary")}
           >
             <Heart className={cn("w-4 h-4", liked && "fill-current")} /> {video.likes_count + (liked ? 1 : 0)}
           </button>
-          <button className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/course/${video.course_id}`);
+            }}
+            className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
+          >
             <MessageCircle className="w-4 h-4" /> {video.comments_count}
           </button>
-          <button className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors">
+          <button
+            onClick={async (e) => {
+              e.stopPropagation();
+              const shareUrl = `${window.location.origin}/course/${video.course_id}`;
+              try {
+                await navigator.clipboard.writeText(shareUrl);
+                toast.success('Course link copied to clipboard.');
+              } catch {
+                toast.error('Unable to copy link.');
+              }
+            }}
+            className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary transition-colors"
+          >
             <Share2 className="w-4 h-4" /> Share
           </button>
         </div>
-        <Link 
-          to={`/course/${video.course_id}`}
-          className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-6 py-2 rounded-xl text-xs font-bold font-display transition-all flex items-center gap-1.5"
-        >
-          View Course <ChevronRight className="w-3.5 h-3.5" />
-        </Link>
+        {viewerRole !== 'student' && video.course_id && (
+          <Link 
+            to={`/course/${video.course_id}`}
+            className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-6 py-2 rounded-xl text-xs font-bold font-display transition-all flex items-center gap-1.5"
+          >
+            View Course <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function CourseAnnouncementCard({
+  course,
+  isFollowingMentor,
+  onToggleFollow,
+  viewerRole,
+}: {
+  course: Course;
+  isFollowingMentor: boolean;
+  onToggleFollow: (mentorId: string) => Promise<void>;
+  viewerRole?: 'student' | 'mentor';
+}) {
+  const navigate = useNavigate();
+  const studentCardClickable = viewerRole === 'student';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className={cn(
+        "bg-bg-card border border-white/5 rounded-3xl overflow-hidden",
+        studentCardClickable && "cursor-pointer"
+      )}
+      onClick={() => {
+        if (studentCardClickable) {
+          navigate(`/course/${course.id}`);
+        }
+      }}
+    >
+      <div className="p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-accent-teal/20 flex items-center justify-center text-xs font-bold text-accent-teal">
+              {course.mentor?.avatar_url ? (
+                <img
+                  src={course.mentor.avatar_url}
+                  alt={course.mentor.full_name}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <span style={{ display: course.mentor?.avatar_url ? 'none' : 'flex' }}>
+                {course.mentor ? getInitials(course.mentor.full_name) : '??'}
+              </span>
+            </div>
+            <div>
+              <p className="text-sm font-bold">{course.mentor?.full_name || 'Mentor'}</p>
+              <p className="text-[10px] text-text-secondary">New course update</p>
+            </div>
+          </div>
+          {course.mentor?.id && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                void onToggleFollow(course.mentor!.id);
+              }}
+              className="text-[10px] font-bold text-accent-teal border border-accent-teal/20 px-4 py-1.5 rounded-xl hover:bg-accent-teal hover:text-bg-base transition-all"
+            >
+              {isFollowingMentor ? 'Following' : '+ Follow'}
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-[10px] font-mono text-accent-teal uppercase tracking-[0.2em]">Course Spotlight</p>
+          <h3 className="text-xl font-display font-bold">{course.title}</h3>
+          <p className="text-sm text-text-secondary leading-relaxed">{course.description || 'Fresh course published. Check the curriculum and start learning.'}</p>
+          <div className="flex flex-wrap gap-2">
+            {course.tags?.slice(0, 4).map((tag) => (
+              <span key={tag} className="text-[10px] text-text-muted">#{tag.replace(/\s/g, '')}</span>
+            ))}
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-white/5 flex items-center justify-between">
+          <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest">
+            Posted {new Date(course.created_at).toLocaleDateString()}
+          </span>
+          <div className="flex items-center gap-2">
+            {isFollowingMentor && course.mentor?.id && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/messages?thread=${course.mentor!.id}`);
+                }}
+                className="text-[10px] font-bold text-text-secondary border border-white/10 px-4 py-1.5 rounded-xl hover:bg-white/5 transition-all"
+              >
+                Message
+              </button>
+            )}
+            {viewerRole !== 'student' && (
+              <Link
+                to={`/course/${course.id}`}
+                className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-4 py-2 rounded-xl text-xs font-bold font-display transition-all flex items-center gap-1.5"
+              >
+                View Course <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
     </motion.div>
   );
@@ -608,50 +1269,3 @@ function ProgressCard({ title, mentor, progress }: { title: string; mentor: stri
   );
 }
 
-const MOCK_STORIES = [
-  { emoji: '👩‍💻', name: 'Dr. Priya' },
-  { emoji: '👨‍🏫', name: 'Rajesh' },
-  { emoji: '🧑‍🔬', name: 'Kavya' },
-  { emoji: '👷', name: 'Arjun' },
-  { emoji: '🧑‍🎨', name: 'Meena' },
-  { emoji: '🧑‍⚕️', name: 'Dinesh' },
-];
-
-const MOCK_MENTORS = [
-  { name: 'Dr. Priya Nair', field: 'System Design', color: 'bg-[#004D3A] text-accent-teal' },
-  { name: 'Rajesh Kumar', field: 'Machine Learning', color: 'bg-[#2D1B69] text-[#C4B5FD]' },
-  { name: 'Anita Sharma', field: 'Product Design', color: 'bg-[#0D2757] text-[#93C5FD]' },
-];
-
-const MOCK_VIDEOS: Video[] = [
-  {
-    id: '1',
-    mentor_id: 'm1',
-    course_id: 'c1',
-    title: 'Load Balancers Explained in 5 Minutes',
-    description: 'A deep dive into horizontal vs vertical scaling strategies, round-robin algorithms, and when to choose each approach for production systems.',
-    likes_count: 1243,
-    comments_count: 84,
-    video_url: null,
-    thumbnail_url: null,
-    duration_sec: 342,
-    created_at: new Date().toISOString(),
-    mentor: { id: 'm1', full_name: 'Dr. Priya Nair', institution: 'IIT Madras', followers_count: 2300 } as any,
-    course: { tags: ['System Design', 'Distributed Systems', 'Backend'] } as any
-  },
-  {
-    id: '2',
-    mentor_id: 'm2',
-    course_id: 'c2',
-    title: 'Neural Networks 101 — The Math Behind AI',
-    description: 'From perceptrons to backpropagation — a visual walkthrough of how modern neural networks learn, with live Python code examples.',
-    likes_count: 2841,
-    comments_count: 193,
-    video_url: null,
-    thumbnail_url: null,
-    duration_sec: 497,
-    created_at: new Date().toISOString(),
-    mentor: { id: 'm2', full_name: 'Rajesh Kumar', institution: 'NIT Trichy', followers_count: 4100 } as any,
-    course: { tags: ['Machine Learning', 'Deep Learning', 'Python'] } as any
-  }
-];

@@ -1,17 +1,22 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '@/src/lib/supabase';
 import { cn } from '@/src/lib/utils';
-import { Mail, Phone, Lock, User, GraduationCap, Users, ArrowRight, ChevronLeft } from 'lucide-react';
+import { getHomeRouteForRole, normalizeUserRole } from '@/src/lib/roles';
+import { Mail, Lock, User, GraduationCap, Users, ArrowRight, ChevronLeft } from 'lucide-react';
+import InstitutionCombobox from '@/src/components/InstitutionCombobox';
 import { toast } from 'sonner';
 
+const OAUTH_PENDING_KEY = 'unigram_oauth_pending';
+
 type AuthMode = 'login' | 'register';
-type AuthMethod = 'email' | 'otp';
-type Step = 'initial' | 'otp-verify' | 'forgot-password';
+type AuthMethod = 'email' | 'magic';
+type Step = 'initial' | 'forgot-password';
 
 export default function AuthPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mode, setMode] = useState<AuthMode>('login');
   const [method, setMethod] = useState<AuthMethod>('email');
   const [step, setStep] = useState<Step>('initial');
@@ -21,9 +26,27 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [institution, setInstitution] = useState('');
   const [role, setRole] = useState<'student' | 'mentor'>('student');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const queryMode = params.get('mode')?.toLowerCase();
+    const queryRole = params.get('role')?.toLowerCase();
+
+    if (queryRole === 'mentor' || queryRole === 'student') {
+      setRole(queryRole);
+    }
+
+    if (queryMode === 'register' || queryMode === 'signup') {
+      setMode('register');
+      return;
+    }
+
+    if (queryMode === 'signin' || queryMode === 'login') {
+      setMode('login');
+    }
+  }, [location.search]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,30 +54,72 @@ export default function AuthPage() {
 
     try {
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
+        const userObj = data.user;
+        const userId = userObj?.id;
+        let redirectTo: '/feed' | '/dashboard' = '/feed';
+
+        if (userId) {
+          const metadataAvatar =
+            typeof userObj?.user_metadata?.avatar_url === 'string'
+              ? userObj.user_metadata.avatar_url
+              : typeof userObj?.user_metadata?.picture === 'string'
+                ? userObj.user_metadata.picture
+                : null;
+
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', userId)
+            .maybeSingle();
+
+          if (!profileData) {
+            const fallbackRole = normalizeUserRole(userObj?.user_metadata?.role);
+            await supabase.from('profiles').insert({
+              id: userId,
+              email: userObj?.email || email,
+              full_name: userObj?.user_metadata?.full_name || userObj?.email?.split('@')[0] || 'User',
+              role: fallbackRole,
+              avatar_url: metadataAvatar,
+            });
+            redirectTo = getHomeRouteForRole(fallbackRole);
+          } else {
+            redirectTo = getHomeRouteForRole(profileData?.role);
+          }
+        }
+
         toast.success('Welcome back!');
+        navigate(redirectTo);
       } else {
-        const { data: { user }, error } = await supabase.auth.signUp({
+        const { data: { user, session }, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
               full_name: fullName,
-              role: role
+              role: role,
+              institution: role === 'mentor' ? institution.trim() || null : null,
             }
           }
         });
         
         if (error) throw error;
         if (!user) throw new Error('No user returned from sign up');
-        
-        toast.success('Account created!');
+
+        if (session) {
+          const redirectTo = getHomeRouteForRole(role);
+          toast.success('Account created successfully.');
+          navigate(redirectTo);
+        } else {
+          toast.success('Account created. Verify your email, then sign in.');
+          setMode('login');
+          setPassword('');
+        }
       }
-      navigate('/feed');
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -65,10 +130,29 @@ export default function AuthPage() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
+      const oauthIntent = mode === 'register' ? 'register' : 'login';
+      const selectedRole = mode === 'register' ? role : 'student';
+      const selectedInstitution = mode === 'register' && role === 'mentor'
+        ? institution.trim() || null
+        : null;
+
+      window.sessionStorage.setItem(
+        OAUTH_PENDING_KEY,
+        JSON.stringify({
+          intent: oauthIntent,
+          role: selectedRole,
+          institution: selectedInstitution,
+        })
+      );
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/feed`
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          }
         }
       });
       if (error) throw error;
@@ -79,31 +163,72 @@ export default function AuthPage() {
     }
   };
 
-  const handleSendOTP = async (e: React.FormEvent) => {
+  const handleSendMagicAuthLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.error('Phone OTP is currently disabled. Please use Email.');
-  };
+    const emailValue = email.trim().toLowerCase();
+    if (!emailValue) {
+      toast.error('Please enter your email address.');
+      return;
+    }
 
-  const handleVerifyOTP = async () => {
     setLoading(true);
     try {
-      toast.error('Phone OTP is currently disabled. Please use Email.');
+      const response = await fetch('/api/send-magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailValue,
+          fullName: fullName || emailValue.split('@')[0],
+          type: 'magiclink',
+          intent: mode,
+          role,
+          institution: role === 'mentor' ? institution.trim() || null : null,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to send magic link');
+      }
+
+      toast.success('Magic link sent. Check your inbox to continue.');
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to send magic link');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOtpInput = (index: number, value: string) => {
-    if (value.length > 1) return;
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
+  const handleSendMagicLink = async () => {
+    const emailValue = email.trim().toLowerCase();
+    if (!emailValue) {
+      toast.error('Please enter your email address.');
+      return;
+    }
 
-    if (value && index < 5) {
-      const nextInput = document.getElementById(`otp-${index + 1}`);
-      nextInput?.focus();
+    setLoading(true);
+    try {
+      const response = await fetch('/api/send-magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailValue,
+          fullName,
+          type: 'recovery',
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to send reset link');
+      }
+
+      toast.success('Reset link sent. Check your inbox.');
+      setStep('initial');
+    } catch (error: any) {
+      toast.error(error.message || 'Unable to send reset link');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -170,13 +295,13 @@ export default function AuthPage() {
                     <Mail className="w-3.5 h-3.5" /> Email
                   </button>
                   <button
-                    onClick={() => setMethod('otp')}
+                    onClick={() => setMethod('magic')}
                     className={cn(
                       "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all",
-                      method === 'otp' ? "bg-bg-card text-text-primary border border-white/5" : "text-text-secondary hover:text-text-primary"
+                      method === 'magic' ? "bg-bg-card text-text-primary border border-white/5" : "text-text-secondary hover:text-text-primary"
                     )}
                   >
-                    <Phone className="w-3.5 h-3.5" /> Phone OTP
+                    <ArrowRight className="w-3.5 h-3.5" /> Magic Link
                   </button>
                 </div>
 
@@ -248,6 +373,17 @@ export default function AuthPage() {
                             color="purple"
                           />
                         </div>
+
+                        {role === 'mentor' && (
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest ml-1">Institution / Organization</label>
+                            <InstitutionCombobox
+                              value={institution}
+                              onChange={setInstitution}
+                              placeholder="Type to search your institution"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -272,26 +408,29 @@ export default function AuthPage() {
                     </button>
                   </form>
                 ) : (
-                  <form onSubmit={handleSendOTP} className="space-y-6">
+                  <form onSubmit={handleSendMagicAuthLink} className="space-y-6">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest ml-1">Phone Number</label>
-                      <div className="flex gap-2">
-                        <div className="w-20 bg-bg-elevated border border-white/5 rounded-xl py-3 text-center text-sm text-text-secondary">+91</div>
+                      <label className="text-[10px] font-mono text-text-muted uppercase tracking-widest ml-1">Email Address</label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                         <input
-                          type="tel"
+                          type="email"
                           required
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="98765 43210"
-                          className="flex-1 bg-bg-elevated border border-white/5 rounded-xl py-3 px-4 text-sm focus:border-accent-teal outline-none transition-all"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="you@example.com"
+                          className="w-full bg-bg-elevated border border-white/5 rounded-xl py-3 pl-11 pr-4 text-sm focus:border-accent-teal outline-none transition-all"
                         />
                       </div>
                     </div>
+                    <p className="text-xs text-text-secondary">
+                      We'll send a secure sign-in link to your email. No OTP code needed.
+                    </p>
                     <button
                       disabled={loading}
                       className="w-full bg-accent-teal hover:bg-[#00f5b4] text-bg-base py-3.5 rounded-xl font-bold font-display transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     >
-                      {loading ? 'Sending...' : 'Send OTP'}
+                      {loading ? 'Sending...' : mode === 'register' ? 'Create Account via Magic Link' : 'Send Magic Link'}
                       {!loading && <ArrowRight className="w-4 h-4" />}
                     </button>
                   </form>
@@ -313,7 +452,9 @@ export default function AuthPage() {
                     <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                     <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                   </svg>
-                  Sign in with Google
+                  {mode === 'register'
+                    ? `Continue with Google as ${role === 'mentor' ? 'Mentor' : 'Student'}`
+                    : 'Sign in with Google'}
                 </button>
 
                 <p className="text-center text-sm text-text-secondary">
@@ -326,56 +467,6 @@ export default function AuthPage() {
                   </button>
                 </p>
               </div>
-            </motion.div>
-          )}
-
-          {step === 'otp-verify' && (
-            <motion.div
-              key="otp"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="bg-bg-card border border-white/5 rounded-3xl p-8 space-y-8 text-center"
-            >
-              <div className="w-16 h-16 bg-accent-teal/10 rounded-2xl flex items-center justify-center mx-auto text-3xl">📱</div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-display font-bold tracking-tight">Check your phone</h2>
-                <p className="text-sm text-text-secondary">We sent a 6-digit code to {phone}</p>
-              </div>
-
-              <div className="flex justify-center gap-2">
-                {otp.map((digit, i) => (
-                  <input
-                    key={i}
-                    id={`otp-${i}`}
-                    type="text"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpInput(i, e.target.value)}
-                    className="w-12 h-14 bg-bg-elevated border border-white/5 rounded-xl text-center text-xl font-bold focus:border-accent-teal outline-none transition-all"
-                  />
-                ))}
-              </div>
-
-              <div className="space-y-4">
-                <button
-                  onClick={handleVerifyOTP}
-                  disabled={loading || otp.some(d => !d)}
-                  className="w-full bg-accent-teal hover:bg-[#00f5b4] text-bg-base py-3.5 rounded-xl font-bold font-display transition-all disabled:opacity-50"
-                >
-                  {loading ? 'Verifying...' : 'Verify & Continue'}
-                </button>
-                <button className="w-full text-xs text-text-muted hover:text-text-primary transition-colors">
-                  Resend code in 0:30
-                </button>
-              </div>
-
-              <button
-                onClick={() => setStep('initial')}
-                className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary mx-auto transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" /> Try a different method
-              </button>
             </motion.div>
           )}
 
@@ -410,13 +501,11 @@ export default function AuthPage() {
 
               <div className="space-y-4">
                 <button
-                  onClick={() => {
-                    toast.success('Reset link sent!');
-                    setStep('initial');
-                  }}
+                  onClick={handleSendMagicLink}
+                  disabled={loading || !email.trim()}
                   className="w-full bg-accent-teal hover:bg-[#00f5b4] text-bg-base py-3.5 rounded-xl font-bold font-display transition-all"
                 >
-                  Send Reset Link
+                  {loading ? 'Sending...' : 'Send Reset Link'}
                 </button>
                 <button
                   onClick={() => setStep('initial')}
