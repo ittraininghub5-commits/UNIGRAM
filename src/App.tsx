@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
 import { Profile } from '@/src/types';
 import { User } from '@supabase/supabase-js';
+import SettingsPage from '@/src/pages/SettingsPage';
 
 // Pages
 import LandingPage from '@/src/pages/LandingPage';
@@ -18,9 +19,7 @@ import MyCoursesPage from '@/src/pages/MyCoursesPage';
 import CertificatesPage from '@/src/pages/Certificatespage';
 import QuizPage from '@/src/pages/QuizPage';
 import GamesPage from '@/src/pages/GamesPage';
-import OAuthCallbackPage from '@/src/pages/OAuthCallbackPage';
 import NotificationsPage from '@/src/pages/NotificationsPage';
-import SettingsPage from '@/src/pages/SettingsPage';
 import { 
   ReactionGamePage, 
   TypingGamePage, 
@@ -152,9 +151,8 @@ export default function App() {
         
         <main className="relative z-10">
           <Routes>
-<Route path="/" element={user ? <Navigate to={getHomeRouteForRole(profile?.role)} replace /> : <LandingPage />} />
-            <Route path="/auth" element={user ? <Navigate to={getHomeRouteForRole(profile?.role)} replace /> : <AuthPage />} />
-            <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+            <Route path="/" element={user ? <Navigate to="/feed" replace /> : <LandingPage />} />
+            <Route path="/auth" element={user ? <Navigate to="/feed" /> : <AuthPage />} />
             <Route path="/feed" element={user ? <FeedPage profile={profile} /> : <Navigate to="/auth" />} />
             <Route path="/dashboard" element={isMentorRole(profile?.role) ? <MentorDashboard profile={profile} /> : <Navigate to="/feed" />} />
             <Route path="/profile/:id?" element={user ? <ProfilePage currentProfile={profile} /> : <Navigate to="/auth" />} />
@@ -173,7 +171,7 @@ export default function App() {
             <Route path="/game/memory" element={user ? <MemoryGamePage /> : <Navigate to="/auth" />} />
             <Route path="/game/hunter" element={user ? <HunterGamePage /> : <Navigate to="/auth" />} />
             <Route path="/notifications" element={user ? <NotificationsPage /> : <Navigate to="/auth" />} />
-            <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/auth" />} />
+            <Route path="/settings" element={user ? <SettingsPage/> : <Navigate to="/auth" />} />
             
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

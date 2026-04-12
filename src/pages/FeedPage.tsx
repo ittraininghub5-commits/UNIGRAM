@@ -400,8 +400,8 @@ export default function FeedPage({ profile }: FeedPageProps) {
   };
 
   return (
-        <div className="pt-18 max-w-7xl mx-auto px-4 ...">
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-8 items-start">
+    <div className="pt-18 max-w-7xl mx-auto px-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_300px] gap-8 items-start">
         
         {/* Left Sidebar */}
         <aside className="hidden lg:block sticky top-24 space-y-6">

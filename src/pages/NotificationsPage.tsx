@@ -1,25 +1,34 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle2, Clock, MessageSquare, ShieldCheck, UserPlus, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/src/lib/supabase';
-import { safeNavigateBack } from '@/src/lib/navigation';
 import { Profile } from '@/src/types';
+import { useTheme } from '@/src/context/ThemeContext';
 
-interface NotificationItem {
+interface Notification {
   id: string;
+  category: 'badges' | 'messages' | 'achievements' | 'updates';
   title: string;
   description: string;
-  createdAt: string;
-  type: 'message' | 'certificate' | 'enrollment' | 'follow';
+  time: string;
+  icon: string;
+  details: Record<string, string>;
+  primaryAction: string;
+  secondaryAction: string;
+  type?: 'message' | 'certificate' | 'enrollment' | 'follow';
+  createdAt?: string;
   href?: string;
 }
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const [activeFilter, setActiveFilter] = useState<string>('all');
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Fetch real notifications from backend
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -27,7 +36,8 @@ export default function NotificationsPage() {
         const { data: authData } = await supabase.auth.getUser();
         const user = authData.user;
         if (!user) {
-          setItems([]);
+          setNotifications([]);
+          setLoading(false);
           return;
         }
 
@@ -40,8 +50,9 @@ export default function NotificationsPage() {
         const userProfile = (profileData || null) as Profile | null;
         setProfile(userProfile);
 
-        const notifications: NotificationItem[] = [];
+        const notificationList: Notification[] = [];
 
+        // Fetch Messages
         const { data: messagesData } = await supabase
           .from('messages')
           .select('id, content, from_id, created_at, from:profiles!messages_from_id_fkey(full_name)')
@@ -50,16 +61,26 @@ export default function NotificationsPage() {
           .limit(8);
 
         (messagesData || []).forEach((row: any) => {
-          notifications.push({
+          notificationList.push({
             id: `msg-${row.id}`,
-            title: `New message from ${row.from?.full_name || 'Mentor'}`,
-            description: row.content || 'You have a new conversation update.',
-            createdAt: row.created_at,
+            category: 'messages',
+            title: `Message from ${row.from?.full_name || 'Instructor'}`,
+            description: row.content || 'You have a new message.',
+            time: new Date(row.created_at).toLocaleDateString(),
+            icon: '💬',
+            details: {
+              'From': row.from?.full_name || 'Instructor',
+              'Date': new Date(row.created_at).toLocaleDateString()
+            },
+            primaryAction: 'Read Message',
+            secondaryAction: 'Reply',
             type: 'message',
-            href: '/messages',
+            createdAt: row.created_at,
+            href: '/messages'
           });
         });
 
+        // Fetch Certificates/Badges
         if (userProfile?.role === 'student') {
           const { data: certReqData } = await supabase
             .from('certificate_requests')
@@ -70,13 +91,22 @@ export default function NotificationsPage() {
 
           (certReqData || []).forEach((row: any) => {
             const statusLabel = row.status === 'approved' ? 'approved' : row.status === 'rejected' ? 'rejected' : 'pending';
-            notifications.push({
+            notificationList.push({
               id: `cert-${row.id}`,
-              title: `Certificate request ${statusLabel}`,
+              category: 'badges',
+              title: `Certificate ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`,
               description: row.mentor_notes || `Course: ${row.course?.title || 'Your course'}`,
-              createdAt: row.reviewed_at || row.requested_at,
+              time: new Date(row.reviewed_at || row.requested_at).toLocaleDateString(),
+              icon: statusLabel === 'approved' ? '📜' : '⏳',
+              details: {
+                'Course': row.course?.title || 'Your course',
+                'Status': statusLabel.toUpperCase()
+              },
+              primaryAction: statusLabel === 'approved' ? 'Download Certificate' : 'View Details',
+              secondaryAction: 'View Credentials',
               type: 'certificate',
-              href: '/certificates',
+              createdAt: row.reviewed_at || row.requested_at,
+              href: '/certificates'
             });
           });
         } else if (userProfile?.role === 'mentor') {
@@ -89,16 +119,28 @@ export default function NotificationsPage() {
             .limit(8);
 
           (pendingData || []).forEach((row: any) => {
-            notifications.push({
+            notificationList.push({
               id: `approval-${row.id}`,
+              category: 'badges',
               title: 'Certificate approval pending',
               description: `${row.student?.full_name || 'Student'} requested approval for ${row.course?.title || 'a course'}`,
-              createdAt: row.requested_at,
+              time: new Date(row.requested_at).toLocaleDateString(),
+              icon: '📋',
+              details: {
+                'Student': row.student?.full_name || 'Student',
+                'Course': row.course?.title || 'Course'
+              },
+              primaryAction: 'Review Request',
+              secondaryAction: 'Dismiss',
               type: 'certificate',
-              href: '/dashboard',
+              createdAt: row.requested_at,
+              href: '/dashboard'
             });
           });
+        }
 
+        // Fetch Follows (Achievements/Updates for mentors)
+        if (userProfile?.role === 'mentor') {
           const { data: followData } = await supabase
             .from('follows')
             .select('id, created_at, follower:profiles!follows_follower_id_fkey(full_name)')
@@ -107,16 +149,26 @@ export default function NotificationsPage() {
             .limit(6);
 
           (followData || []).forEach((row: any) => {
-            notifications.push({
+            notificationList.push({
               id: `follow-${row.id}`,
+              category: 'achievements',
               title: 'New follower',
               description: `${row.follower?.full_name || 'A student'} started following you.`,
-              createdAt: row.created_at,
+              time: new Date(row.created_at).toLocaleDateString(),
+              icon: '⭐',
+              details: {
+                'Follower': row.follower?.full_name || 'A student',
+                'Date': new Date(row.created_at).toLocaleDateString()
+              },
+              primaryAction: 'View Profile',
+              secondaryAction: 'Send Message',
               type: 'follow',
-              href: '/feed',
+              createdAt: row.created_at,
+              href: '/feed'
             });
           });
 
+          // Fetch Enrollments
           const { data: enrollData } = await supabase
             .from('enrollments')
             .select('id, enrolled_at, student:profiles(full_name), course:courses(title, mentor_id)')
@@ -127,19 +179,34 @@ export default function NotificationsPage() {
             .filter((row: any) => row.course?.mentor_id === user.id)
             .slice(0, 8)
             .forEach((row: any) => {
-              notifications.push({
+              notificationList.push({
                 id: `enroll-${row.id}`,
+                category: 'updates',
                 title: 'New enrollment',
                 description: `${row.student?.full_name || 'A student'} enrolled in ${row.course?.title || 'your course'}`,
-                createdAt: row.enrolled_at,
+                time: new Date(row.enrolled_at).toLocaleDateString(),
+                icon: '🎓',
+                details: {
+                  'Student': row.student?.full_name || 'Student',
+                  'Course': row.course?.title || 'Course'
+                },
+                primaryAction: 'View Course',
+                secondaryAction: 'Send Welcome',
                 type: 'enrollment',
-                href: '/dashboard',
+                createdAt: row.enrolled_at,
+                href: '/dashboard'
               });
             });
         }
 
-        notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setItems(notifications.slice(0, 20));
+        // Sort by date
+        notificationList.sort((a, b) => {
+          const dateA = new Date(a.createdAt || a.time).getTime();
+          const dateB = new Date(b.createdAt || b.time).getTime();
+          return dateB - dateA;
+        });
+
+        setNotifications(notificationList);
       } finally {
         setLoading(false);
       }
@@ -148,78 +215,282 @@ export default function NotificationsPage() {
     void load();
   }, []);
 
-  const roleTitle = useMemo(() => {
-    if (profile?.role === 'mentor') return 'Mentor Notifications';
-    if (profile?.role === 'student') return 'Student Notifications';
-    return 'Notifications';
-  }, [profile?.role]);
+  const filteredNotifications = activeFilter === 'all'
+    ? notifications
+    : notifications.filter(n => n.category === activeFilter);
 
-  const iconForType = (type: NotificationItem['type']) => {
-    switch (type) {
-      case 'message':
-        return <MessageSquare className="w-4 h-4 text-accent-teal" />;
-      case 'certificate':
-        return <ShieldCheck className="w-4 h-4 text-accent-amber" />;
-      case 'enrollment':
-        return <CheckCircle2 className="w-4 h-4 text-accent-purple" />;
-      case 'follow':
-        return <UserPlus className="w-4 h-4 text-accent-teal" />;
+  const getBadgeColor = (category: string) => {
+    switch (category) {
+      case 'badges':
+        return theme === 'dark'
+          ? 'bg-teal-500/20 text-teal-300'
+          : 'bg-teal-100 text-teal-700';
+      case 'messages':
+        return theme === 'dark'
+          ? 'bg-blue-500/20 text-blue-300'
+          : 'bg-blue-100 text-blue-700';
+      case 'achievements':
+        return theme === 'dark'
+          ? 'bg-purple-500/20 text-purple-300'
+          : 'bg-purple-100 text-purple-700';
+      case 'updates':
+        return theme === 'dark'
+          ? 'bg-amber-500/20 text-amber-300'
+          : 'bg-amber-100 text-amber-700';
       default:
-        return <Bell className="w-4 h-4 text-text-secondary" />;
+        return theme === 'dark'
+          ? 'bg-gray-500/15 text-gray-300'
+          : 'bg-gray-100 text-gray-700';
     }
   };
 
+  const getCardBorderColor = (category: string) => {
+    switch (category) {
+      case 'badges':
+        return theme === 'dark'
+          ? 'border-teal-600/30 hover:border-teal-500'
+          : 'border-teal-200 hover:border-teal-300';
+      case 'messages':
+        return theme === 'dark'
+          ? 'border-blue-600/30 hover:border-blue-500'
+          : 'border-blue-200 hover:border-blue-300';
+      case 'achievements':
+        return theme === 'dark'
+          ? 'border-purple-600/30 hover:border-purple-500'
+          : 'border-purple-200 hover:border-purple-300';
+      case 'updates':
+        return theme === 'dark'
+          ? 'border-amber-600/30 hover:border-amber-500'
+          : 'border-amber-200 hover:border-amber-300';
+      default:
+        return theme === 'dark'
+          ? 'border-slate-700 hover:border-slate-600'
+          : 'border-slate-200 hover:border-slate-300';
+    }
+  };
+
+  const getCardBackground = () => {
+    return theme === 'dark' ? 'bg-slate-800/50' : 'bg-white';
+  };
+
+  const getTextColor = () => {
+    return theme === 'dark' ? 'text-white' : 'text-slate-900';
+  };
+
+  const getSecondaryTextColor = () => {
+    return theme === 'dark' ? 'text-slate-400' : 'text-slate-600';
+  };
+
+  const getDetailsBgColor = () => {
+    return theme === 'dark' ? 'bg-slate-900/70' : 'bg-slate-100';
+  };
+
+  const getDetailTextColor = () => {
+    return theme === 'dark' ? 'text-slate-400' : 'text-slate-600';
+  };
+
+  const getFilterButtonColor = (isActive: boolean, category: string) => {
+    if (!isActive) {
+      return theme === 'dark'
+        ? 'bg-transparent border border-slate-600 hover:border-slate-500'
+        : 'bg-transparent border border-slate-300 hover:border-slate-400';
+    }
+
+    const colorMap: Record<string, { dark: string; light: string }> = {
+      all: { dark: 'bg-cyan-500 text-slate-950', light: 'bg-cyan-400 text-white' },
+      badges: { dark: 'bg-teal-500 text-slate-950', light: 'bg-teal-500 text-white' },
+      messages: { dark: 'bg-blue-500 text-slate-950', light: 'bg-blue-500 text-white' },
+      achievements: { dark: 'bg-purple-500 text-white', light: 'bg-purple-500 text-white' },
+      updates: { dark: 'bg-amber-500 text-slate-950', light: 'bg-amber-500 text-white' }
+    };
+
+    return theme === 'dark' ? colorMap[category]?.dark : colorMap[category]?.light;
+  };
+
+  const handlePrimaryAction = (notification: Notification) => {
+    if (notification.href) {
+      navigate(notification.href);
+    } else {
+      switch (notification.category) {
+        case 'badges':
+          navigate('/certificates');
+          break;
+        case 'messages':
+          navigate('/messages');
+          break;
+        case 'achievements':
+          navigate('/profile');
+          break;
+        case 'updates':
+          navigate('/dashboard');
+          break;
+        default:
+          navigate('/');
+      }
+    }
+  };
+
+  const handleSecondaryAction = (actionText: string) => {
+    console.log(`Action: ${actionText}`);
+  };
+
   return (
-    <div className="pt-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 space-y-6">
-      <button
-        onClick={() => safeNavigateBack(navigate, '/feed')}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-text-secondary hover:text-text-primary hover:border-white/20 transition-all"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
-
-      <div className="space-y-1">
-        <h1 className="text-3xl font-display font-extrabold tracking-tight">{roleTitle}</h1>
-        <p className="text-sm text-text-secondary">Live updates for messages, enrollments, certificate requests, and follows.</p>
-      </div>
-
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-20 rounded-2xl bg-bg-card border border-white/5 animate-pulse" />
-          ))}
+    <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-slate-950' : 'bg-slate-50'}`}>
+      <div className={`max-w-6xl mx-auto px-4 py-8 pt-24 ${getTextColor()}`}>
+        {/* Header */}
+        <div className={`mb-8 pb-6 border-b transition-colors duration-300 ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'} text-center`}>
+          <h1 className={`text-4xl font-bold mb-2 ${getTextColor()}`}>Notifications</h1>
+          <p className={getSecondaryTextColor()}>Stay updated with your learning progress, achievements, and messages</p>
         </div>
-      ) : items.length === 0 ? (
-        <div className="bg-bg-card border border-white/5 rounded-3xl p-12 text-center space-y-3">
-          <Bell className="w-10 h-10 text-text-muted mx-auto" />
-          <p className="text-sm text-text-secondary">No notifications yet.</p>
+
+        {/* Filter Tabs */}
+        <div className="flex flex-wrap gap-3 mb-8">
+          <button
+            onClick={() => setActiveFilter('all')}
+            className={`px-5 py-2 rounded-lg font-medium text-sm transition-all ${
+              getFilterButtonColor(activeFilter === 'all', 'all')
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setActiveFilter('badges')}
+            className={`px-5 py-2 rounded-lg font-medium text-sm transition-all ${
+              getFilterButtonColor(activeFilter === 'badges', 'badges')
+            }`}
+          >
+            Badges & Certificates
+          </button>
+          <button
+            onClick={() => setActiveFilter('messages')}
+            className={`px-5 py-2 rounded-lg font-medium text-sm transition-all ${
+              getFilterButtonColor(activeFilter === 'messages', 'messages')
+            }`}
+          >
+            Messages
+          </button>
+          <button
+            onClick={() => setActiveFilter('achievements')}
+            className={`px-5 py-2 rounded-lg font-medium text-sm transition-all ${
+              getFilterButtonColor(activeFilter === 'achievements', 'achievements')
+            }`}
+          >
+            Achievements
+          </button>
+          <button
+            onClick={() => setActiveFilter('updates')}
+            className={`px-5 py-2 rounded-lg font-medium text-sm transition-all ${
+              getFilterButtonColor(activeFilter === 'updates', 'updates')
+            }`}
+          >
+            Updates
+          </button>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {items.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => (item.href ? navigate(item.href) : undefined)}
-              className="w-full text-left bg-bg-card border border-white/5 rounded-2xl p-4 hover:border-accent-teal/20 transition-all"
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-bg-elevated flex items-center justify-center shrink-0">
-                  {iconForType(item.type)}
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className={`p-5 border rounded-xl text-center hover:shadow-md transition-all duration-300 ${
+            theme === 'dark'
+              ? 'bg-gradient-to-br from-teal-900/40 to-teal-800/20 border-teal-600/30 hover:border-teal-500'
+              : 'bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200 hover:border-teal-300'
+          }`}>
+            <div className={`text-3xl font-bold mb-2 ${theme === 'dark' ? 'text-teal-400' : 'text-teal-600'}`}>{notifications.length}</div>
+            <div className={`text-sm uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Total Notifications</div>
+          </div>
+          <div className={`p-5 border rounded-xl text-center hover:shadow-md transition-all duration-300 ${
+            theme === 'dark'
+              ? 'bg-gradient-to-br from-blue-900/40 to-blue-800/20 border-blue-600/30 hover:border-blue-500'
+              : 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:border-blue-300'
+          }`}>
+            <div className={`text-3xl font-bold mb-2 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>{notifications.filter(n => n.category === 'badges').length}</div>
+            <div className={`text-sm uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Badges & Certificates</div>
+          </div>
+          <div className={`p-5 border rounded-xl text-center hover:shadow-md transition-all duration-300 ${
+            theme === 'dark'
+              ? 'bg-gradient-to-br from-purple-900/40 to-purple-800/20 border-purple-600/30 hover:border-purple-500'
+              : 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:border-purple-300'
+          }`}>
+            <div className={`text-3xl font-bold mb-2 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>{notifications.filter(n => n.category === 'messages').length}</div>
+            <div className={`text-sm uppercase tracking-wider ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>Messages</div>
+          </div>
+        </div>
+
+        {/* Notifications Grid */}
+        {loading ? (
+          <div className="space-y-6">
+            {[1, 2, 3].map(i => <div key={i} className={`h-[400px] border rounded-3xl animate-pulse transition-colors duration-300 ${
+              theme === 'dark'
+                ? 'bg-slate-800/50 border-white/5'
+                : 'bg-slate-200 border-slate-300'
+            }`} />)}
+          </div>
+        ) : filteredNotifications.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredNotifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`p-6 border rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${getCardBorderColor(notification.category)} ${getCardBackground()}`}
+              >
+                {/* Card Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className={`text-lg font-semibold mb-1 ${getTextColor()}`}>{notification.title}</h3>
+                    <p className={`text-xs ${getSecondaryTextColor()}`}>{notification.time}</p>
+                  </div>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl flex-shrink-0 ${getBadgeColor(notification.category)}`}>
+                    {notification.icon}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-text-primary">{item.title}</p>
-                  <p className="text-xs text-text-secondary mt-1 line-clamp-2">{item.description}</p>
+
+                {/* Description */}
+                <p className={`text-sm mb-4 leading-relaxed ${getSecondaryTextColor()}`}>
+                  {notification.description}
+                </p>
+
+                {/* Details Card */}
+                <div className={`p-4 rounded-lg mb-4 space-y-3 ${getDetailsBgColor()}`}>
+                  {Object.entries(notification.details).map(([label, value]) => (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className={`text-xs font-medium uppercase ${getDetailTextColor()}`}>{label}</span>
+                      <span className={`text-sm font-semibold ${getTextColor()}`}>{value}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-1 text-[10px] font-mono text-text-muted uppercase tracking-wider shrink-0">
-                  <Clock className="w-3 h-3" />
-                  {new Date(item.createdAt).toLocaleDateString()}
+
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => handlePrimaryAction(notification)}
+                    className={`w-full py-2.5 font-semibold rounded-lg transition-colors duration-300 ${
+                      theme === 'dark'
+                        ? 'bg-cyan-500 hover:bg-cyan-600 text-slate-950'
+                        : 'bg-cyan-500 hover:bg-cyan-600 text-white'
+                    }`}
+                  >
+                    {notification.primaryAction}
+                  </button>
+                  <button 
+                    onClick={() => handleSecondaryAction(notification.secondaryAction)}
+                    className={`w-full py-2.5 font-semibold rounded-lg transition-colors duration-300 ${
+                      theme === 'dark'
+                        ? 'bg-transparent border border-slate-600 hover:bg-slate-700 text-white'
+                        : 'bg-transparent border border-slate-300 hover:bg-slate-100 text-slate-900'
+                    }`}
+                  >
+                    {notification.secondaryAction}
+                  </button>
                 </div>
               </div>
-            </button>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        ) : (
+          <div className={`text-center py-12 ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-white'} rounded-xl border ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
+            <div className={`text-5xl mb-4 opacity-50`}>📭</div>
+            <h3 className={`text-xl font-semibold mb-2 ${getTextColor()}`}>No notifications</h3>
+            <p className={getSecondaryTextColor()}>You're all caught up! Check back later for updates.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
