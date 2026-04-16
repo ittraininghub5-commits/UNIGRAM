@@ -20,6 +20,12 @@ import CertificatesPage from '@/src/pages/Certificatespage';
 import QuizPage from '@/src/pages/QuizPage';
 import GamesPage from '@/src/pages/GamesPage';
 import NotificationsPage from '@/src/pages/NotificationsPage';
+import SynapsePage from '@/src/pages/SynapsePage';
+import SynapseCreatePage from '@/src/pages/SynapseCreatePage';
+import SynapseDiscoverPage from '@/src/pages/SynapseDiscoverPage';
+import SynapseConnectPage from '@/src/pages/SynapseConnectPage';
+import SynapseAchievementsPage from '@/src/pages/SynapseAchievementsPage';
+import SynapseProfilePage from '@/src/pages/SynapseProfilePage';
 import { 
   ReactionGamePage, 
   TypingGamePage, 
@@ -164,6 +170,18 @@ export default function App() {
             <Route path="/certificates" element={user ? <CertificatesPage /> : <Navigate to="/auth" />} />
             <Route path="/quiz" element={user ? <QuizPage /> : <Navigate to="/auth" />} />
             <Route path="/notificationspage" element={user ? <NotificationsPage /> : <Navigate to="/auth" />} />
+            <Route path="/collab" element={user ? <SynapsePage /> : <Navigate to="/auth" />} />
+            <Route path="/collab/create" element={user ? <SynapseCreatePage profile={profile} /> : <Navigate to="/auth" />} />
+            <Route path="/collab/discover" element={user ? <SynapseDiscoverPage profile={profile} /> : <Navigate to="/auth" />} />
+            <Route path="/collab/connect" element={user ? <SynapseConnectPage profile={profile} /> : <Navigate to="/auth" />} />
+            <Route path="/collab/achievements" element={user ? <SynapseAchievementsPage profile={profile} /> : <Navigate to="/auth" />} />
+            <Route path="/collab/profile/:id?" element={user ? <SynapseProfilePage currentProfile={profile} /> : <Navigate to="/auth" />} />
+            <Route path="/synapse" element={user ? <SynapsePage /> : <Navigate to="/auth" />} />
+            <Route path="/synapse/create" element={user ? <SynapseCreatePage profile={profile} /> : <Navigate to="/auth" />} />
+            <Route path="/synapse/discover" element={user ? <SynapseDiscoverPage profile={profile} /> : <Navigate to="/auth" />} />
+            <Route path="/synapse/connect" element={user ? <SynapseConnectPage profile={profile} /> : <Navigate to="/auth" />} />
+            <Route path="/synapse/achievements" element={user ? <SynapseAchievementsPage profile={profile} /> : <Navigate to="/auth" />} />
+            <Route path="/synapse/profile/:id?" element={user ? <SynapseProfilePage currentProfile={profile} /> : <Navigate to="/auth" />} />
 
             <Route path="/games" element={user ? <GamesPage /> : <Navigate to="/auth" />} />
             <Route path="/game/reaction" element={user ? <ReactionGamePage /> : <Navigate to="/auth" />} />

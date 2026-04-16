@@ -5,7 +5,7 @@ import { Profile, Video, Enrollment, Course } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { getAIInsightForVideo, generateAIInsight, AIInsight as AIInsightType, generateCourseMetadataFromTitle } from '@/src/services/aiService';
 import { cn, getInitials } from '@/src/lib/utils';
-import { Heart, MessageCircle, Share2, Play, Plus, BookOpen, Trophy, Search, Bell, Settings, CheckCircle2, ChevronRight, Sparkles, Loader2, Gamepad2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Plus, BookOpen, Trophy, Search, Bell, Settings, CheckCircle2, ChevronRight, Sparkles, Loader2, Gamepad2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FeedPageProps {
@@ -461,6 +461,11 @@ export default function FeedPage({ profile }: FeedPageProps) {
               icon={<Search className="w-4 h-4" />} 
               label="Search"
               onClick={() => navigate('/search')}
+            />
+            <SidebarNavItem 
+              icon={<Users className="w-4 h-4" />} 
+              label="Collab"
+              onClick={() => navigate('/collab')}
             />
             <SidebarNavItem 
               icon={<Gamepad2 className="w-4 h-4" />} 

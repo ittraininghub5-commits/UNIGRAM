@@ -5,11 +5,18 @@ import { cn, getInitials } from '@/src/lib/utils';
 import { Send, Search, MoreVertical, Phone, Video, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
+import {
+  isSynapseConnectDecline,
+  isSynapseConnectRequest,
+  isSynapseThreadAccepted,
+  SynapseThreadMessage,
+} from '@/src/lib/synapse';
 
 interface Thread {
   id: string;
   name: string;
   avatarUrl?: string | null;
+  profile?: Profile;
   lastMessage: string;
   time: string;
   unread: number;
@@ -20,8 +27,13 @@ interface Thread {
 interface UiMessage {
   id: string;
   text: string;
+  rawText: string;
   time: string;
   fromMe: boolean;
+  fromId: string;
+  createdAt: string;
+  isConnectRequest: boolean;
+  isConnectDecline: boolean;
 }
 
 interface DbMessage {
@@ -144,6 +156,17 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     return params.get('thread');
   }, [location.search]);
 
+  const threadPartnerProfiles = useMemo(() => {
+    const map = new Map<string, Profile>();
+    threads.forEach((thread) => {
+      const profileData = thread.profile;
+      if (profileData) {
+        map.set(thread.id, profileData);
+      }
+    });
+    return map;
+  }, [threads]);
+
   const ensureThreadExists = async (threadId: string) => {
     const exists = threads.some((thread) => thread.id === threadId);
     if (exists) {
@@ -165,6 +188,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       {
         id: threadId,
         name: data.full_name || 'Unknown User',
+        profile: data as Profile,
         lastMessage: 'Start the conversation',
         time: 'now',
         unread: 0,
@@ -221,9 +245,14 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
         conversations[partnerId].push({
           id: msg.id,
-          text: msg.content || '',
+          text: formatMessageContent(msg.content),
+          rawText: msg.content || '',
           time: formatMessageTime(msg.created_at),
           fromMe: msg.from_id === profile.id,
+          fromId: msg.from_id,
+          createdAt: msg.created_at,
+          isConnectRequest: isSynapseConnectRequest(msg.content),
+          isConnectDecline: isSynapseConnectDecline(msg.content),
         });
 
         const partner = profilesMap.get(partnerId);
@@ -237,17 +266,19 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
             id: partnerId,
             name: threadName,
             avatarUrl: partner?.avatar_url || null,
-            lastMessage: msg.content || '',
+            lastMessage: formatMessageContent(msg.content),
             time: formatRelativeTime(msg.created_at),
             unread: unreadIncrement,
             color,
             lastTimestamp: new Date(msg.created_at).getTime(),
           });
+          (threadsMap.get(partnerId) as Thread).profile = partner as Profile | undefined;
         } else {
-          existing.lastMessage = msg.content || existing.lastMessage;
+          existing.lastMessage = formatMessageContent(msg.content) || existing.lastMessage;
           existing.time = formatRelativeTime(msg.created_at);
           existing.unread += unreadIncrement;
           existing.lastTimestamp = Math.max(existing.lastTimestamp, new Date(msg.created_at).getTime());
+          existing.profile = (partner as Profile | undefined) || existing.profile;
         }
       });
 
@@ -297,6 +328,11 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     e.preventDefault();
     if (!message.trim() || !profile?.id || !selectedThreadId) return;
 
+    if (!canSendToSelectedThread.canSend) {
+      toast.error(canSendToSelectedThread.reason || 'Messaging is locked for this thread.');
+      return;
+    }
+
     const content = message.trim();
     setMessage('');
 
@@ -312,6 +348,77 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       toast.error('Failed to send message.');
     }
   };
+
+  const canSendToSelectedThread = useMemo(() => {
+    if (!profile?.id || !selectedThreadId) {
+      return { canSend: false, reason: 'Select a conversation first.' };
+    }
+
+    const partnerProfile = threadPartnerProfiles.get(selectedThreadId);
+    if (partnerProfile?.role === 'mentor') {
+      return { canSend: true, reason: '' };
+    }
+
+    const threadMessages = (conversationByThread[selectedThreadId] || []).map((message) => ({
+      fromId: message.fromId,
+      toId: message.fromMe ? selectedThreadId : profile.id,
+      content: message.rawText,
+      createdAt: message.createdAt,
+    })) as SynapseThreadMessage[];
+
+    if (threadMessages.length === 0) {
+      return {
+        canSend: false,
+        reason: 'Use Collab to send the first request to non-mentor users.',
+      };
+    }
+
+    if (isSynapseThreadAccepted(profile.id, selectedThreadId, threadMessages)) {
+      return { canSend: true, reason: '' };
+    }
+
+    const declinedThread = threadMessages.some((threadMessage) => isSynapseConnectDecline(threadMessage.content));
+
+    if (declinedThread) {
+      return {
+        canSend: false,
+        reason: 'This Collab request was declined, so messaging is locked for both users.',
+      };
+    }
+
+    const incomingConnectRequest = threadMessages.some(
+      (message) =>
+        message.fromId === selectedThreadId &&
+        message.toId === profile.id &&
+        isSynapseConnectRequest(message.content),
+    );
+
+    if (incomingConnectRequest) {
+      return {
+        canSend: true,
+        reason: 'Reply to this Collab request to accept and unlock chat.',
+      };
+    }
+
+    const outgoingConnectRequest = threadMessages.some(
+      (message) =>
+        message.fromId === profile.id &&
+        message.toId === selectedThreadId &&
+        isSynapseConnectRequest(message.content),
+    );
+
+    if (outgoingConnectRequest) {
+      return {
+        canSend: false,
+        reason: 'Waiting for the other person to reply. Once they reply, chat unlocks for both of you.',
+      };
+    }
+
+    return {
+      canSend: false,
+      reason: 'Only mentors or accepted connect threads can be messaged here.',
+    };
+  }, [profile?.id, selectedThreadId, conversationByThread, threadPartnerProfiles]);
 
   return (
         <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -518,18 +625,23 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
           {/* Input */}
           <footer className="p-6 bg-bg-card/50 backdrop-blur-xl border-t border-white/5">
+            {selectedThread && canSendToSelectedThread.reason && (
+              <div className="mb-3 text-xs text-text-muted">
+                {canSendToSelectedThread.reason}
+              </div>
+            )}
             <form onSubmit={handleSendMessage} className="flex gap-3">
               <input 
                 type="text" 
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type a message..."
-                disabled={!selectedThread}
+                placeholder={canSendToSelectedThread.canSend ? "Type a message..." : "Messaging unavailable for this thread"}
+                disabled={!selectedThread || !canSendToSelectedThread.canSend}
                 className="flex-1 bg-bg-elevated border border-white/5 rounded-2xl px-6 py-3 text-sm outline-none focus:border-accent-teal transition-all"
               />
               <button 
                 type="submit"
-                disabled={!selectedThread || !message.trim()}
+                disabled={!selectedThread || !message.trim() || !canSendToSelectedThread.canSend}
                 className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base p-3 rounded-2xl transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Send className="w-5 h-5" />
@@ -576,6 +688,18 @@ function formatRelativeTime(timestamp: string): string {
 
 function formatMessageTime(timestamp: string): string {
   return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatMessageContent(content: string | null): string {
+  const value = content || '';
+  if (!isSynapseConnectDecline(value)) {
+    return value;
+  }
+
+  return value
+    .split('\n')
+    .filter((line) => line.trim() && !isSynapseConnectDecline(line))
+    .join('\n');
 }
 
 function getThreadPresence(thread: Thread, onlineUserIds: Set<string>): 'online' | 'recent' | 'offline' {
