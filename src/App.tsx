@@ -32,6 +32,7 @@ import {
 import Navbar from '@/src/components/Navbar';
 import AuthenticatedLayout from '@/src/components/layout/AuthenticatedLayout';
 import ErrorBoundary from '@/src/components/ErrorBoundary';
+import LiveBackground from '@/src/components/LiveBackground';
 import { useTheme } from '@/src/context/ThemeContext';
 import { getHomeRouteForRole, isMentorRole, normalizeUserRole } from '@/src/lib/roles';
 import '@/src/styles/GamesPage.css';
@@ -158,11 +159,7 @@ export default function App() {
     <ErrorBoundary>
       <Router>
         <div className="min-h-screen bg-bg-base relative overflow-x-hidden">
-        <div className="absolute inset-0 pointer-events-none opacity-60" style={{ backgroundImage: 'linear-gradient(to right, rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px)', backgroundSize: '38px 38px' }} />
-        <div className="orb orb-1"></div>
-        <div className="orb orb-2"></div>
-        <div className="pointer-events-none absolute top-[18%] left-[15%] w-72 h-72 rounded-full bg-[radial-gradient(circle,rgba(230,255,47,0.18),transparent_68%)]"></div>
-        <div className="pointer-events-none absolute bottom-[8%] right-[12%] w-80 h-80 rounded-full bg-[radial-gradient(circle,rgba(127,140,255,0.16),transparent_68%)]"></div>
+        <LiveBackground />
         
         <Navbar user={user} profile={profile} />
         

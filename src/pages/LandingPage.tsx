@@ -1,7 +1,35 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion, useScroll, useTransform } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { ArrowRight, GraduationCap, Users, Award, Shield, BarChart3, Zap } from 'lucide-react';
+import { useRef } from 'react';
+
+
+const sectionReveal = {
+  hidden: { opacity: 0, y: 36 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 1.0, ease: [0.16, 1, 0.3, 1] },
+  },
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.15, delayChildren: 0.1 },
+  },
+};
+
+const staggerItem = {
+  hidden: { opacity: 0, y: 24, filter: 'blur(4px)' },
+  visible: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+  },
+};
 
 export default function LandingPage() {
   return (
@@ -81,13 +109,100 @@ export default function LandingPage() {
         >
           <div className="w-[320px] mx-auto bg-bg-card border border-white/10 rounded-[40px] p-4 shadow-2xl rotate-1">
             <div className="w-20 h-1.5 bg-bg-base rounded-full mx-auto mb-4" />
-            <div className="aspect-[9/16] rounded-[24px] bg-bg-elevated overflow-hidden relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#0c1f1a] via-[#0f1d2a] to-[#0a1528]" />
-              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(73,220,122,0.25) 1px, transparent 1px), linear-gradient(90deg, rgba(34,242,239,0.25) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-              
-              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-bg-base/90 to-transparent">
-                <p className="font-display font-bold text-sm">Dr. Priya Nair</p>
-                <p className="text-[10px] text-text-secondary">System Design Fundamentals · Lesson 4</p>
+            <div className="aspect-[9/16] rounded-[24px] bg-bg-base overflow-hidden relative flex flex-col text-[10px]">
+              {/* Mini Navbar */}
+              <div className="flex items-center justify-between px-3 py-2 bg-bg-surface border-b border-white/5">
+                <span className="font-display font-bold text-accent-teal text-[11px]">Unigram</span>
+                <div className="flex gap-1.5">
+                  <div className="w-4 h-4 rounded-full bg-white/10" />
+                  <div className="w-4 h-4 rounded-full bg-white/10" />
+                </div>
+              </div>
+
+              {/* Mini Feed - scrolling content */}
+              <div className="flex-1 overflow-hidden px-2.5 py-2 space-y-2">
+                {/* Mini Post Card */}
+                <motion.div
+                  animate={{ y: [0, -4, 0] }}
+                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                  className="space-y-2"
+                >
+                  <div className="bg-bg-card rounded-xl p-2.5 border border-white/5 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-5 h-5 rounded-full bg-accent-teal/20 flex items-center justify-center text-[7px]">👩‍🏫</div>
+                      <div>
+                        <p className="font-bold text-[8px] leading-none">Dr. Priya Nair</p>
+                        <p className="text-text-muted text-[6px]">System Design · 2h ago</p>
+                      </div>
+                    </div>
+                    <div className="w-full h-16 rounded-lg bg-gradient-to-br from-[#0c1f1a] via-[#0f1d2a] to-[#0a1528] flex items-center justify-center">
+                      <div className="w-4 h-4 rounded-full border border-accent-teal/40 flex items-center justify-center">
+                        <div className="w-0 h-0 border-l-[5px] border-l-accent-teal/60 border-y-[3px] border-y-transparent ml-0.5" />
+                      </div>
+                    </div>
+                    <div className="flex gap-3 text-text-muted text-[7px]">
+                      <span>❤️ 234</span><span>💬 18</span><span>🔖</span>
+                    </div>
+                  </div>
+
+                  {/* Mini Course Card */}
+                  <div className="bg-bg-card rounded-xl p-2.5 border border-white/5 space-y-1.5">
+                    <p className="text-[7px] font-mono text-accent-teal uppercase tracking-wider">Enrolled Course</p>
+                    <p className="font-display font-bold text-[9px]">React Advanced Patterns</p>
+                    <div className="w-full h-1 rounded-full bg-white/10">
+                      <motion.div
+                        className="h-full rounded-full bg-accent-teal"
+                        initial={{ width: '30%' }}
+                        animate={{ width: '72%' }}
+                        transition={{ duration: 3, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+                      />
+                    </div>
+                    <p className="text-text-muted text-[7px]">72% complete · 5 lessons left</p>
+                  </div>
+
+                  {/* Mini Certificate */}
+                  <div className="bg-gradient-to-br from-accent-teal/10 to-accent-purple/10 rounded-xl p-2.5 border border-accent-teal/15 space-y-1">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px]">🎓</span>
+                      <p className="font-display font-bold text-[9px] text-accent-teal">New Certificate!</p>
+                    </div>
+                    <p className="text-[8px]">Web Dev Mastery</p>
+                    <p className="text-text-muted text-[6px]">Signed by Prof. Alex Chen</p>
+                  </div>
+
+                  {/* Mini Mentor Card */}
+                  <div className="bg-bg-card rounded-xl p-2.5 border border-white/5">
+                    <p className="text-[7px] font-mono text-accent-purple uppercase tracking-wider mb-1.5">Recommended</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-accent-purple/20 flex items-center justify-center text-[10px]">👨‍💻</div>
+                      <div>
+                        <p className="font-bold text-[8px]">Prof. Alex Chen</p>
+                        <p className="text-text-muted text-[6px]">AI & Machine Learning</p>
+                      </div>
+                      <div className="ml-auto px-2 py-0.5 rounded-full bg-accent-purple/20 text-accent-purple text-[6px] font-bold">Follow</div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Mini Bottom Nav */}
+              <div className="flex items-center justify-around px-2 py-1.5 bg-bg-surface border-t border-white/5">
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className="w-3 h-3 rounded-sm bg-accent-teal/40" />
+                  <span className="text-[5px] text-accent-teal font-bold">Feed</span>
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className="w-3 h-3 rounded-sm bg-white/10" />
+                  <span className="text-[5px] text-text-muted">Courses</span>
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className="w-3 h-3 rounded-sm bg-white/10" />
+                  <span className="text-[5px] text-text-muted">Games</span>
+                </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className="w-3 h-3 rounded-sm bg-white/10" />
+                  <span className="text-[5px] text-text-muted">Profile</span>
+                </div>
               </div>
             </div>
           </div>
@@ -108,13 +223,26 @@ export default function LandingPage() {
       </section>
 
       {/* Problem Section (Gaps) */}
-      <section id="purpose" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.section
+        id="purpose"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: false, amount: 0.2 }}
+      >
         <div className="text-center space-y-4 mb-16">
           <span className="text-xs font-mono text-accent-teal tracking-widest uppercase">The Problem</span>
           <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter">Three Critical Gaps in Education</h2>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <motion.div
+          className="grid md:grid-cols-3 gap-8"
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: false, amount: 0.15 }}
+        >
           <GapCard 
             number="01"
             title="YouTube — No Credibility"
@@ -130,25 +258,43 @@ export default function LandingPage() {
             title="Udemy — No Real Relationships"
             description="Students complete courses from faceless platforms. No personal mentor-student interaction. Courses are transactional; mentors don't know student names."
           />
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
       {/* Solution Section (Pillars) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.section
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        initial={{ opacity: 0, scale: 0.96, y: 40 }}
+        whileInView={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        viewport={{ once: false, amount: 0.15 }}
+      >
         <div className="bg-bg-card border border-white/5 rounded-[48px] p-12 md:p-20 relative overflow-hidden shadow-[0_24px_60px_rgba(4,10,10,0.5)]">
           <div className="absolute inset-0 bg-gradient-to-br from-accent-teal/8 via-transparent to-accent-purple/8" />
           <div className="absolute -top-16 right-12 w-40 h-40 rounded-full bg-[radial-gradient(circle,rgba(73,220,122,0.18),transparent_70%)]" />
           
           <div className="relative z-10 grid lg:grid-cols-2 gap-16 items-start">
-            <div className="space-y-7">
+            <motion.div
+              className="space-y-7"
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              viewport={{ once: false }}
+            >
               <span className="text-xs font-mono text-accent-teal tracking-widest uppercase">The Unigram Solution</span>
               <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter max-w-sm leading-tight">Three Foundational Pillars</h2>
               <p className="text-lg text-text-secondary leading-relaxed max-w-sm">                
                 Unigram bridges all three gaps through a unified platform built on credibility, verification, and real human connection.
               </p>
-            </div>
+            </motion.div>
 
-            <div className="space-y-6">
+            <motion.div
+              className="space-y-6"
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: false, amount: 0.2 }}
+            >
               <PillarItem 
                 title="1. Verified Mentors"
                 description="Only approved professionals with verified credentials can teach. Every lesson comes with a real name and professional reputation."
@@ -161,19 +307,32 @@ export default function LandingPage() {
                 title="3. Built-in Relationships"
                 description="Students follow mentors and maintain ongoing relationships. Real mentorship creates real credibility and professional growth."
               />
-            </div>
+            </motion.div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Features Section - This is what "About Us" links to */}
-      <section id="about" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.section
+        id="about"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: false, amount: 0.15 }}
+      >
         <div className="text-center space-y-4 mb-16">
           <span className="text-xs font-mono text-accent-teal tracking-widest uppercase">What makes us different</span>
           <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter">Built for the future of learning</h2>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <motion.div
+          className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: false, amount: 0.1 }}
+        >
           <FeatureCard 
             icon="🎬" 
             title="Short-form Learning" 
@@ -210,17 +369,30 @@ export default function LandingPage() {
             description="Stay updated with mentor content, peer achievements, and course launches through a dynamic, personalized feed built on real-time data."
             color="amber"
           />
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
       {/* Roles Section */}
-      <section id="roles" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.section
+        id="roles"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: false, amount: 0.2 }}
+      >
         <div className="text-center space-y-4 mb-16">
           <span className="text-xs font-mono text-accent-teal tracking-widest uppercase">Choose your path</span>
           <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter">Who is Unigram for?</h2>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <motion.div
+          className="grid md:grid-cols-2 gap-8"
+          variants={staggerContainer}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: false, amount: 0.15 }}
+        >
           <RoleCard 
             role="student"
             icon={<GraduationCap className="w-12 h-12 text-accent-teal" />}
@@ -247,11 +419,17 @@ export default function LandingPage() {
               "Write professional recommendations"
             ]}
           />
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
       {/* CTA Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.section
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        initial={{ opacity: 0, y: 50, scale: 0.97 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        viewport={{ once: false, amount: 0.2 }}
+      >
         <div className="bg-bg-card border border-white/5 rounded-[32px] p-12 md:p-20 text-center relative overflow-hidden shadow-[0_24px_60px_rgba(4,10,10,0.45)]">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-px bg-gradient-to-r from-transparent via-accent-teal to-transparent" />
           <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-[radial-gradient(circle,rgba(34,242,239,0.16),transparent_70%)]" />
@@ -280,13 +458,19 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 border-t border-white/5 text-center">
+      <motion.footer
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 border-t border-white/5 text-center"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        viewport={{ once: false }}
+      >
         <p className="text-sm text-text-muted">
           © 2025 Unigram · Built by Team-3 (Jebarson) · <span className="text-accent-teal font-mono">Where learning becomes social, and social becomes credible.</span>
         </p>
-      </footer>
+      </motion.footer>
     </div>
     </>
   );
@@ -319,20 +503,27 @@ function FloatingCard({ className, title, icon, subtitle }: { className?: string
 
 function GapCard({ number, title, description }: { number: string; title: string; description: string }) {
   return (
-    <div className="bg-bg-card border border-white/5 rounded-3xl p-8 space-y-6 shadow-[0_18px_36px_rgba(4,10,10,0.4)]">
+    <motion.div
+      variants={staggerItem}
+      whileHover={{ y: -6, transition: { duration: 0.25 } }}
+      className="bg-bg-card border border-white/5 rounded-3xl p-8 space-y-6 shadow-[0_18px_36px_rgba(4,10,10,0.4)] hover:border-accent-teal/20 transition-colors"
+    >
       <div className="text-4xl font-display font-extrabold text-accent-teal/20">{number}</div>
       <h3 className="text-xl font-display font-bold">{title}</h3>
       <p className="text-sm text-text-secondary leading-relaxed">{description}</p>
-    </div>
+    </motion.div>
   );
 }
 
 function PillarItem({ title, description }: { title: string; description: string }) {
   return (
-    <div className="space-y-2">
+    <motion.div
+      variants={staggerItem}
+      className="space-y-2 pl-6 border-l-2 border-accent-teal/20 hover:border-accent-teal/60 transition-colors"
+    >
       <h3 className="text-xl font-display font-bold text-accent-teal">{title}</h3>
       <p className="text-sm text-text-secondary leading-relaxed">{description}</p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -344,13 +535,17 @@ function FeatureCard({ icon, title, description, color }: { icon: string; title:
   };
 
   return (
-    <div className="bg-bg-card border border-white/5 rounded-3xl p-8 hover:border-accent-teal/20 transition-all group hover:-translate-y-1">
+    <motion.div
+      variants={staggerItem}
+      whileHover={{ y: -5, transition: { duration: 0.25 } }}
+      className="bg-bg-card border border-white/5 rounded-3xl p-8 hover:border-accent-teal/20 transition-colors group"
+    >
       <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-6", colors[color])}>
         {icon}
       </div>
       <h3 className="text-xl font-display font-bold mb-3 group-hover:text-accent-teal transition-colors">{title}</h3>
       <p className="text-sm text-text-secondary leading-relaxed">{description}</p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -358,8 +553,11 @@ function RoleCard({ role, icon, title, description, features }: { role: 'student
   const isStudent = role === 'student';
   
   return (
-    <div className={cn(
-      "rounded-[32px] p-10 border transition-all hover:scale-[1.01] cursor-pointer group shadow-[0_18px_40px_rgba(4,10,10,0.45)]",
+    <motion.div
+      variants={staggerItem}
+      whileHover={{ scale: 1.02, transition: { duration: 0.25 } }}
+      className={cn(
+      "rounded-[32px] p-10 border transition-colors cursor-pointer group shadow-[0_18px_40px_rgba(4,10,10,0.45)]",
       isStudent 
         ? "bg-gradient-to-br from-[#081a16] via-[#0b2020] to-[#0e1c2b] border-accent-teal/15" 
         : "bg-gradient-to-br from-[#120a1f] via-[#1a0e2d] to-[#0f1a2d] border-accent-purple/15"
@@ -390,6 +588,6 @@ function RoleCard({ role, icon, title, description, features }: { role: 'student
       >
         Explore as {title} <ArrowRight className="ml-2 w-5 h-5" />
       </Link>
-    </div>
+    </motion.div>
   );
 }
