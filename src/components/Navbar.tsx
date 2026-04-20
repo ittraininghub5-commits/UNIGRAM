@@ -27,6 +27,7 @@ export default function Navbar({ user, profile }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [activeLandingSection, setActiveLandingSection] = useState('home');
 
   const isLandingPage = location.pathname === '/';
   const isAuthenticatedApp = !!user && !isLandingPage;
@@ -67,6 +68,31 @@ export default function Navbar({ user, profile }: NavbarProps) {
   }, []);
 
   useEffect(() => {
+    if (!isLandingPage) return;
+
+    const updateActiveSection = () => {
+      const navOffset = 140;
+      let currentSection = 'home';
+
+      for (const item of landingLinks) {
+        const section = document.getElementById(item.id);
+        if (!section) continue;
+
+        const sectionTop = section.getBoundingClientRect().top + window.scrollY - navOffset;
+        if (window.scrollY >= sectionTop) {
+          currentSection = item.id;
+        }
+      }
+
+      setActiveLandingSection(currentSection);
+    };
+
+    updateActiveSection();
+    window.addEventListener('scroll', updateActiveSection, { passive: true });
+    return () => window.removeEventListener('scroll', updateActiveSection);
+  }, [isLandingPage]);
+
+  useEffect(() => {
     setMobileOpen(false);
     setAppearanceOpen(false);
   }, [location.pathname]);
@@ -88,6 +114,7 @@ export default function Navbar({ user, profile }: NavbarProps) {
 
     const navOffset = 104;
     const top = section.getBoundingClientRect().top + window.scrollY - navOffset;
+    setActiveLandingSection(sectionId);
     window.scrollTo({ top, behavior: 'smooth' });
     setMobileOpen(false);
   };
@@ -122,13 +149,13 @@ export default function Navbar({ user, profile }: NavbarProps) {
             {isLandingPage ? (
               <div className="hidden lg:flex items-center justify-center flex-1 min-w-0 px-4">
                 <div className="panel-pill rounded-full px-2 py-1 flex items-center gap-1 overflow-x-auto">
-                  {landingLinks.map((item, index) => (
+                  {landingLinks.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => scrollToLandingSection(item.id)}
                       className={cn(
                         'px-5 py-2 text-sm font-semibold rounded-full transition-all whitespace-nowrap',
-                        index === 0
+                        activeLandingSection === item.id
                           ? 'bg-bg-elevated text-accent-teal shadow-sm'
                           : 'text-text-secondary hover:text-accent-teal hover:bg-bg-elevated'
                       )}
@@ -281,13 +308,13 @@ export default function Navbar({ user, profile }: NavbarProps) {
 
       {mobileOpen && isLandingPage && (
         <div className="fixed top-[82px] left-3 right-3 z-40 xl:hidden editorial-card menu-drop rounded-2xl p-3 space-y-2">
-          {landingLinks.map((item, index) => (
+          {landingLinks.map((item) => (
             <button
               key={item.id}
               onClick={() => scrollToLandingSection(item.id)}
               className={cn(
                 'w-full text-left px-3 py-2 rounded-xl text-sm font-medium',
-                index === 0
+                activeLandingSection === item.id
                   ? 'bg-bg-elevated text-accent-teal'
                   : 'text-text-secondary hover:text-accent-teal hover:bg-bg-elevated'
               )}
