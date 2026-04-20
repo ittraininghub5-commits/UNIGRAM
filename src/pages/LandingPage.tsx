@@ -557,10 +557,10 @@ function RoleCard({ role, icon, title, description, features }: { role: 'student
       variants={staggerItem}
       whileHover={{ scale: 1.02, transition: { duration: 0.25 } }}
       className={cn(
-      "rounded-[32px] p-10 border transition-colors cursor-pointer group shadow-[0_18px_40px_rgba(4,10,10,0.45)]",
+      "role-card rounded-[32px] p-10 border transition-colors cursor-pointer group",
       isStudent 
-        ? "bg-gradient-to-br from-[#081a16] via-[#0b2020] to-[#0e1c2b] border-accent-teal/15" 
-        : "bg-gradient-to-br from-[#120a1f] via-[#1a0e2d] to-[#0f1a2d] border-accent-purple/15"
+        ? "role-card-student border-accent-teal/15" 
+        : "role-card-mentor border-accent-purple/15"
     )}>
       <div className="mb-6">{icon}</div>
       <h3 className={cn("text-3xl font-display font-extrabold mb-4", isStudent ? "text-accent-teal" : "text-accent-purple")}>
@@ -583,7 +583,7 @@ function RoleCard({ role, icon, title, description, features }: { role: 'student
           "inline-flex items-center justify-center w-full py-4 rounded-2xl font-bold font-display transition-all",
           isStudent 
             ? "bg-accent-teal text-bg-base hover:brightness-110" 
-            : "bg-accent-purple text-white hover:bg-[#9d85f9]"
+            : "bg-accent-purple text-white hover:brightness-110"
         )}
       >
         Explore as {title} <ArrowRight className="ml-2 w-5 h-5" />
