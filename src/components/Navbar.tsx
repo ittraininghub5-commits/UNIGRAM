@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
-import { Bell, BookOpen, Compass, FileCheck, Gamepad2, LayoutDashboard, LogOut, Menu, MessageSquare, Moon, Palette, Search, Settings, Sun, User as UserIcon, X } from 'lucide-react';
+import { Bell, BookOpen, Compass, FileCheck, Gamepad2, Handshake, LayoutDashboard, LogOut, Menu, MessageSquare, Moon, Palette, Search, Settings, Sun, User as UserIcon, X } from 'lucide-react';
 import { Profile } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { cn, getInitials } from '@/src/lib/utils';
@@ -46,6 +46,7 @@ export default function Navbar({ user, profile }: NavbarProps) {
       { to: '/search', label: 'Search', icon: Search },
       { to: '/messages', label: 'Messages', icon: MessageSquare },
       { to: '/courses', label: 'Courses', icon: BookOpen },
+      { to: '/collab', label: 'Collab', icon: Handshake },
       { to: '/certificates', label: 'Certificates', icon: FileCheck },
       { to: '/games', label: 'Games', icon: Gamepad2 },
       { to: '/notifications', label: 'Notifications', icon: Bell },

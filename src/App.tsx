@@ -21,6 +21,7 @@ import CertificatesPage from '@/src/pages/Certificatespage';
 import QuizPage from '@/src/pages/QuizPage';
 import GamesPage from '@/src/pages/GamesPage';
 import NotificationsPage from '@/src/pages/NotificationsPage';
+import SynapsePage from '@/src/pages/SynapsePage';
 import { 
   ReactionGamePage, 
   TypingGamePage, 
@@ -209,6 +210,7 @@ function AnimatedAppRoutes({
           <Route path="/course/:id" element={renderAuthed(<CourseDetailPage />)} />
 
           <Route path="/courses" element={renderAuthed(<MyCoursesPage />)} />
+          <Route path="/collab" element={renderAuthed(<SynapsePage />)} />
           <Route path="/certificates" element={renderAuthed(<CertificatesPage />)} />
           <Route path="/quiz" element={renderAuthed(<QuizPage />)} />
           <Route path="/notificationspage" element={renderAuthed(<NotificationsPage />)} />
