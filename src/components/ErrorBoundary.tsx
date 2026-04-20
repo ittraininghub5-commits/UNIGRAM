@@ -46,7 +46,7 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
             )}
             <button
               onClick={this.handleReload}
-              className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
+              className="bg-accent-teal hover:brightness-110 text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
             >
               Reload
             </button>
@@ -58,3 +58,4 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
     return this.props.children;
   }
 }
+

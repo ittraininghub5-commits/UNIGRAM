@@ -171,7 +171,7 @@ export default function App() {
           />
         </main>
 
-          <Toaster position="bottom-center" theme={theme === 'dark' ? 'dark' : 'light'} />
+          <Toaster position="bottom-center" theme={theme} />
         </div>
       </Router>
     </ErrorBoundary>
@@ -201,7 +201,7 @@ function AnimatedAppRoutes({
         <Routes location={location}>
           <Route path="/" element={user ? <Navigate to="/feed" replace /> : <LandingPage />} />
           <Route path="/auth" element={user ? <Navigate to="/feed" /> : <AuthPage />} />
-            <Route path="/feed" element={user ? <FeedPage profile={profile} /> : <Navigate to="/auth" />} />
+          <Route path="/feed" element={renderAuthed(<FeedPage profile={profile} />)} />
           <Route path="/dashboard" element={isMentorRole(profile?.role) ? renderAuthed(<MentorDashboard profile={profile} />) : <Navigate to="/feed" />} />
           <Route path="/profile/:id?" element={renderAuthed(<ProfilePage currentProfile={profile} />)} />
           <Route path="/search" element={renderAuthed(<SearchPage />)} />

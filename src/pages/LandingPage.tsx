@@ -77,7 +77,7 @@ export default function LandingPage() {
           >
             <Link
               to="/auth"
-              className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-8 py-4 rounded-2xl text-lg font-bold font-display transition-all hover:-translate-y-1 hover:shadow-[0_14px_32px_rgba(73,220,122,0.28)]"
+              className="bg-accent-teal hover:brightness-110 text-bg-base px-8 py-4 rounded-2xl text-lg font-bold font-display transition-all hover:-translate-y-1 hover:shadow-[0_14px_32px_rgba(73,220,122,0.28)]"
             >
               Get Started Free
             </Link>
@@ -445,7 +445,7 @@ export default function LandingPage() {
             <div className="flex flex-wrap justify-center gap-4">
               <Link
                 to="/auth"
-                className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-8 py-4 rounded-2xl text-lg font-bold font-display transition-all hover:-translate-y-1"
+                className="bg-accent-teal hover:brightness-110 text-bg-base px-8 py-4 rounded-2xl text-lg font-bold font-display transition-all hover:-translate-y-1"
               >
                 Create Free Account
               </Link>
@@ -582,7 +582,7 @@ function RoleCard({ role, icon, title, description, features }: { role: 'student
         className={cn(
           "inline-flex items-center justify-center w-full py-4 rounded-2xl font-bold font-display transition-all",
           isStudent 
-            ? "bg-accent-teal text-bg-base hover:bg-[#00f5b4]" 
+            ? "bg-accent-teal text-bg-base hover:brightness-110" 
             : "bg-accent-purple text-white hover:bg-[#9d85f9]"
         )}
       >
@@ -591,3 +591,4 @@ function RoleCard({ role, icon, title, description, features }: { role: 'student
     </motion.div>
   );
 }
+

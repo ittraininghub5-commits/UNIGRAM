@@ -127,10 +127,10 @@ export function MyCoursesPage() {
           <div className="border rounded-2xl p-6 transition-colors bg-bg-card/70 border-white/10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-accent-purple">PENDING</p>
+                <p className="text-sm font-semibold text-accent-amber">PENDING</p>
                 <p className="text-3xl font-bold mt-2 text-text-primary">{stats.pending}</p>
               </div>
-              <AlertCircle className="w-12 h-12 opacity-25 text-accent-purple" />
+              <AlertCircle className="w-12 h-12 opacity-25 text-accent-amber" />
             </div>
           </div>
         </div>
@@ -180,7 +180,7 @@ export function MyCoursesPage() {
                     <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       course.status === 'completed' ? 'bg-accent-teal/20 text-accent-teal' :
                       course.status === 'in-progress' ? 'bg-accent-amber/20 text-accent-amber' :
-                      'bg-accent-purple/20 text-accent-purple'
+                      'bg-accent-amber/20 text-accent-amber'
                     }`}>
                       {course.status === 'completed' ? '✓ Complete' : course.status === 'in-progress' ? 'In Progress' : 'Pending'}
                     </div>

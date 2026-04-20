@@ -34,11 +34,10 @@ interface DbMessage {
 }
 
 const THREAD_COLORS = [
-  'bg-[#004D3A] text-accent-teal',
-  'bg-[#2D1B69] text-[#C4B5FD]',
-  'bg-[#0D2757] text-[#93C5FD]',
-  'bg-[#5A2A00] text-[#FDBA74]',
-  'bg-[#3A1A5E] text-[#E9D5FF]',
+  'bg-[rgba(var(--accent-rgb),0.18)] text-accent-teal border border-[rgba(var(--accent-rgb),0.24)]',
+  'bg-[rgba(var(--accent-secondary-rgb),0.18)] text-accent-amber border border-[rgba(var(--accent-secondary-rgb),0.24)]',
+  'bg-[rgba(var(--accent-tertiary-rgb),0.18)] text-accent-purple border border-[rgba(var(--accent-tertiary-rgb),0.24)]',
+  'bg-[linear-gradient(135deg,rgba(var(--accent-rgb),0.16)_0%,rgba(var(--accent-secondary-rgb),0.12)_100%)] text-accent-teal border border-[rgba(var(--accent-rgb),0.22)]',
 ];
 
 interface MessagesPageProps {
@@ -530,7 +529,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
               <button 
                 type="submit"
                 disabled={!selectedThread || !message.trim()}
-                className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base p-3 rounded-2xl transition-all hover:-translate-y-0.5 active:translate-y-0"
+                className="bg-accent-teal hover:brightness-110 text-bg-base p-3 rounded-2xl transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Send className="w-5 h-5" />
               </button>
@@ -602,3 +601,4 @@ function hashString(value: string): number {
   }
   return hash;
 }
+

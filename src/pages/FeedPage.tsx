@@ -5,7 +5,7 @@ import { Profile, Video, Enrollment, Course } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { getAIInsightForVideo, generateAIInsight, AIInsight as AIInsightType, generateCourseMetadataFromTitle } from '@/src/services/aiService';
 import { cn, getInitials } from '@/src/lib/utils';
-import { Heart, MessageCircle, Share2, Play, Plus, BookOpen, Trophy, Search, Bell, Settings, CheckCircle2, ChevronRight, Sparkles, Loader2, Gamepad2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Play, Plus, CheckCircle2, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FeedPageProps {
@@ -400,88 +400,11 @@ export default function FeedPage({ profile }: FeedPageProps) {
   };
 
   return (
-    <div className="pt-24 max-w-[1500px] mx-auto w-full px-4 sm:px-6 lg:px-8 route-transition">
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)_minmax(280px,320px)] gap-5 items-start">
-        
-        {/* Left Sidebar */}
-        <aside className="hidden lg:block sticky top-24 max-h-[calc(100vh-6rem)] overflow-auto space-y-5 pr-1">
-          <div className="editorial-card lift-on-hover rounded-3xl p-6 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-accent-teal to-accent-purple p-[2px] mx-auto">
-              <div className="w-full h-full rounded-full bg-bg-card overflow-hidden flex items-center justify-center text-xl font-bold text-accent-teal">
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={profile.full_name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
-                      if (fallback) fallback.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
-                <span style={{ display: profile?.avatar_url ? 'none' : 'flex' }}>
-                  {profile ? getInitials(profile.full_name) : '??'}
-                </span>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <h3 className="font-display font-bold text-sm">{profile?.full_name}</h3>
-              <span className="inline-block px-2 py-0.5 rounded-md bg-accent-teal/20 text-accent-teal text-[10px] font-mono uppercase tracking-widest">
-                {profile?.role}
-              </span>
-            </div>
-            <div className="pt-4 border-t border-white/5 grid grid-cols-3 gap-2">
-              <SidebarStat value={enrolledCourses.length.toString()} label="Courses" />
-              <SidebarStat value={enrolledCourses.filter(e => e.completed).length.toString()} label="Certs" />
-              <SidebarStat value={profile?.following_count?.toString() || "0"} label="Following" />
-            </div>
-          </div>
-
-          <nav className="editorial-card lift-on-hover rounded-3xl overflow-hidden">
-            {profile?.role !== 'student' && (
-              <SidebarNavItem 
-                icon={<Plus className="w-4 h-4" />} 
-                label="Create Post" 
-                active 
-                onClick={handleOpenCreatePost}
-              />
-            )}
-            <SidebarNavItem 
-              icon={<BookOpen className="w-4 h-4" />} 
-              label="My Courses"
-              onClick={() => navigate('/courses')}
-            />
-            <SidebarNavItem 
-              icon={<Trophy className="w-4 h-4" />} 
-              label="Certificates"
-              onClick={() => navigate('/certificates')}
-            />
-            <SidebarNavItem 
-              icon={<Search className="w-4 h-4" />} 
-              label="Search"
-              onClick={() => navigate('/search')}
-            />
-            <SidebarNavItem 
-              icon={<Gamepad2 className="w-4 h-4" />} 
-              label="Game"
-              onClick={() => navigate('/games')}
-            />
-            <SidebarNavItem 
-              icon={<Bell className="w-4 h-4" />} 
-              label="Notifications"
-              onClick={() => navigate('/notificationspage')}
-            />
-            <SidebarNavItem 
-              icon={<Settings className="w-4 h-4" />} 
-              label="Settings"
-              onClick={() => navigate('/settings')}
-            />
-          </nav>
-        </aside>
+    <div className="pt-24 max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8 route-transition">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
 
         {/* Main Feed */}
-        <div className="space-y-8">
+        <div className="space-y-8 min-w-0">
           {profile?.role === 'mentor' && showCreatePostComposer && (
             <div ref={createPostSectionRef} className="editorial-card lift-on-hover rounded-3xl p-5 space-y-4">
               <div className="flex items-center justify-between gap-4">
@@ -660,7 +583,41 @@ export default function FeedPage({ profile }: FeedPageProps) {
         </div>
 
         {/* Right Sidebar */}
-        <aside className="hidden xl:block sticky top-24 max-h-[calc(100vh-6rem)] overflow-auto space-y-5 pr-1">
+        <aside className="hidden lg:block sticky top-24 space-y-5 pr-1">
+          <div className="editorial-card lift-on-hover rounded-[30px] p-6 text-center space-y-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#43c0ff] to-[#2b7fff] p-[2px] mx-auto shadow-[0_12px_28px_rgba(67,192,255,0.22)]">
+              <div className="w-full h-full rounded-full bg-bg-card overflow-hidden flex items-center justify-center text-[2rem] font-bold text-[#43c0ff]">
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.full_name}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <span style={{ display: profile?.avatar_url ? 'none' : 'flex' }}>
+                  {profile ? getInitials(profile.full_name) : '??'}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-display font-extrabold text-base uppercase">{profile?.full_name}</h3>
+              <span className="inline-flex px-3 py-1 rounded-lg bg-accent-teal/20 text-accent-teal text-[10px] font-mono uppercase tracking-[0.28em]">
+                {profile?.role}
+              </span>
+            </div>
+            <div className="pt-4 border-t border-white/5 grid grid-cols-3 gap-2">
+              <SidebarStat value={enrolledCourses.length.toString()} label="Courses" />
+              <SidebarStat value={enrolledCourses.filter((e) => e.completed).length.toString()} label="Certs" />
+              <SidebarStat value={profile?.following_count?.toString() || '0'} label="Following" />
+            </div>
+          </div>
+
           <div className="editorial-card lift-on-hover rounded-3xl p-6 space-y-6">
             <h3 className="text-[10px] font-mono text-text-muted uppercase tracking-[0.2em]">Suggested Mentors</h3>
             <div className="space-y-4">
@@ -853,33 +810,6 @@ function SidebarStat({ value, label }: { value: string; label: string }) {
   );
 }
 
-function SidebarNavItem({ 
-  icon, 
-  label, 
-  active, 
-  badge, 
-  onClick 
-}: { 
-  icon: React.ReactNode; 
-  label: string; 
-  active?: boolean; 
-  badge?: number; 
-  onClick?: () => void 
-}) {
-  return (
-    <button 
-      onClick={onClick}
-      className={cn(
-        "w-full flex items-center gap-3 px-4 py-3 text-sm transition-all border-b border-white/5 last:border-0",
-        active ? "text-accent-teal bg-accent-teal/5" : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated"
-      )}>
-      <span className="text-lg">{icon}</span>
-      <span className="flex-1 text-left">{label}</span>
-      {badge && <span className="bg-accent-teal text-bg-base text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badge}</span>}
-    </button>
-  );
-}
-
 function PostCard({
   video,
   isFollowingMentor,
@@ -1044,7 +974,7 @@ function PostCard({
             <button 
               onClick={handleGenerateInsight}
               disabled={loadingInsight}
-              className="flex items-center gap-2 text-[10px] font-bold text-accent-teal hover:text-[#00f5b4] transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 text-[10px] font-bold text-accent-teal hover:text-accent-amber transition-colors disabled:opacity-50"
             >
               {loadingInsight ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -1057,7 +987,7 @@ function PostCard({
             <div className="space-y-3">
               <button 
                 onClick={() => setShowInsight(!showInsight)}
-                className="flex items-center gap-2 text-[10px] font-bold text-accent-teal hover:text-[#00f5b4] transition-colors"
+                className="flex items-center gap-2 text-[10px] font-bold text-accent-teal hover:text-accent-amber transition-colors"
               >
                 <Sparkles className="w-3 h-3" />
                 {showInsight ? 'Hide AI Insights' : 'Show AI Insights'}
@@ -1132,7 +1062,7 @@ function PostCard({
         {viewerRole !== 'student' && video.course_id && (
           <Link 
             to={`/course/${video.course_id}`}
-            className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-6 py-2 rounded-xl text-xs font-bold font-display transition-all flex items-center gap-1.5"
+            className="bg-accent-teal hover:brightness-110 text-bg-base px-6 py-2 rounded-xl text-xs font-bold font-display transition-all flex items-center gap-1.5"
           >
             View Course <ChevronRight className="w-3.5 h-3.5" />
           </Link>
@@ -1240,7 +1170,7 @@ function CourseAnnouncementCard({
             {viewerRole !== 'student' && (
               <Link
                 to={`/course/${course.id}`}
-                className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-4 py-2 rounded-xl text-xs font-bold font-display transition-all flex items-center gap-1.5"
+                className="bg-accent-teal hover:brightness-110 text-bg-base px-4 py-2 rounded-xl text-xs font-bold font-display transition-all flex items-center gap-1.5"
               >
                 View Course <ChevronRight className="w-3.5 h-3.5" />
               </Link>
@@ -1268,4 +1198,5 @@ function ProgressCard({ title, mentor, progress }: { title: string; mentor: stri
     </div>
   );
 }
+
 

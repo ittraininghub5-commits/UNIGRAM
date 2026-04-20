@@ -164,7 +164,7 @@ export default function OAuthCallbackPage() {
           </p>
           <button
             onClick={() => navigate(destination, { replace: true })}
-            className="w-full bg-accent-teal hover:bg-[#00f5b4] text-bg-base py-3 rounded-xl font-bold"
+            className="w-full bg-accent-teal hover:brightness-110 text-bg-base py-3 rounded-xl font-bold"
           >
             Continue
           </button>
@@ -188,3 +188,4 @@ export default function OAuthCallbackPage() {
     </div>
   );
 }
+

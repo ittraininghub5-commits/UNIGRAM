@@ -653,7 +653,7 @@ export default function MentorDashboard({ profile }: MentorDashboardProps) {
           </button>
           <button
             onClick={() => setShowCreateCourse(true)}
-            className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold font-display transition-all flex items-center gap-2"
+            className="bg-accent-teal hover:brightness-110 text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold font-display transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> New Course
           </button>
@@ -688,7 +688,7 @@ export default function MentorDashboard({ profile }: MentorDashboardProps) {
             <button
               onClick={handleCreateCourse}
               disabled={creatingCourse || generatingCourseMeta || autofillingCourseMeta}
-              className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+              className="bg-accent-teal hover:brightness-110 text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
             >
               {autofillingCourseMeta || generatingCourseMeta ? 'AI drafting details...' : creatingCourse ? 'Creating...' : 'Create Course'}
             </button>
@@ -1132,7 +1132,7 @@ export default function MentorDashboard({ profile }: MentorDashboardProps) {
                       </button>
                       <button
                         onClick={() => handleApproveCertificateRequest(request)}
-                        className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest"
+                        className="bg-accent-teal hover:brightness-110 text-bg-base px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest"
                       >
                         Approve
                       </button>
@@ -1243,3 +1243,4 @@ function GraduationCapIcon() {
     </svg>
   );
 }
+

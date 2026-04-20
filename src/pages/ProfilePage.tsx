@@ -407,7 +407,7 @@ export default function ProfilePage({ currentProfile }: ProfilePageProps) {
             <button
               onClick={handleSaveProfile}
               disabled={savingProfile}
-              className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+              className="bg-accent-teal hover:brightness-110 text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
             >
               {savingProfile ? 'Saving...' : 'Save'}
             </button>
@@ -427,7 +427,7 @@ export default function ProfilePage({ currentProfile }: ProfilePageProps) {
           <h2 className="font-display font-bold text-lg flex items-center gap-2">
             <Award className="w-5 h-5 text-accent-teal" /> Certificates
           </h2>
-          <span className="px-2 py-0.5 rounded bg-accent-teal/10 text-accent-teal text-[10px] font-bold font-mono uppercase tracking-widest">5 earned</span>
+          <span className="px-2 py-0.5 rounded bg-accent-teal/10 text-accent-teal text-[10px] font-bold font-mono uppercase tracking-widest">{stats.certs} earned</span>
         </div>
         <div className="p-6 grid sm:grid-cols-2 gap-4">
           {certificates.length === 0 ? (
@@ -450,7 +450,7 @@ export default function ProfilePage({ currentProfile }: ProfilePageProps) {
       <section className="bg-bg-card/70 border border-white/10 rounded-2xl overflow-hidden">
         <div className="p-6 border-b border-white/5">
           <h2 className="font-display font-bold text-lg flex items-center gap-2">
-            <Quote className="w-5 h-5 text-accent-purple" /> Recommendations
+            <Quote className="w-5 h-5 text-accent-teal" /> Recommendations
           </h2>
         </div>
         <div className="p-6 space-y-4">
@@ -486,7 +486,7 @@ export default function ProfilePage({ currentProfile }: ProfilePageProps) {
 function ProfileStat({ value, label }: { value: string; label: string }) {
   return (
     <div className="space-y-1">
-      <div className="text-xl font-display font-extrabold tracking-tight">{value}</div>
+      <div className="text-xl font-display font-extrabold tracking-tight text-accent-teal">{value}</div>
       <div className="text-[9px] font-mono text-text-muted uppercase tracking-widest">{label}</div>
     </div>
   );
@@ -503,3 +503,4 @@ function CertCard({ title, mentor, date, icon }: { title: string; mentor: string
     </div>
   );
 }
+

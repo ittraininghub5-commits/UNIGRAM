@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle2, Clock, MessageSquare, ShieldCheck, UserPlus, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/src/lib/supabase';
@@ -226,7 +226,7 @@ export default function NotificationsPage() {
       case 'messages':
         return 'bg-accent-amber/15 text-accent-amber';
       case 'achievements':
-        return 'bg-accent-purple/15 text-accent-purple';
+        return 'bg-accent-teal/15 text-accent-teal';
       case 'updates':
         return 'bg-accent-amber/15 text-accent-amber';
       default:
@@ -241,7 +241,7 @@ export default function NotificationsPage() {
       case 'messages':
         return 'border-accent-amber/25 hover:border-accent-amber/60';
       case 'achievements':
-        return 'border-accent-purple/25 hover:border-accent-purple/60';
+        return 'border-accent-teal/25 hover:border-accent-teal/60';
       case 'updates':
         return 'border-accent-amber/25 hover:border-accent-amber/60';
       default:
@@ -278,7 +278,7 @@ export default function NotificationsPage() {
       all: 'bg-accent-amber text-bg-base',
       badges: 'bg-accent-teal text-bg-base',
       messages: 'bg-accent-amber text-bg-base',
-      achievements: 'bg-accent-purple text-white',
+      achievements: 'bg-accent-teal text-bg-base',
       updates: 'bg-accent-amber text-bg-base'
     };
 
@@ -308,8 +308,19 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleSecondaryAction = (actionText: string) => {
-    console.log(`Action: ${actionText}`);
+  const handleSecondaryAction = (notification: Notification) => {
+    if (notification.secondaryAction === 'Reply') {
+      setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
+      navigate('/messages');
+      return;
+    }
+
+    if (notification.secondaryAction === 'Dismiss') {
+      setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
+      return;
+    }
+
+    console.log(`Action: ${notification.secondaryAction}`);
   };
 
   return (
@@ -385,8 +396,8 @@ export default function NotificationsPage() {
             <div className="text-3xl font-bold mb-2 text-accent-amber">{notifications.filter(n => n.category === 'badges').length}</div>
             <div className="text-sm uppercase tracking-wider text-text-secondary">Messages</div>
           </div>
-          <div className="p-5 border rounded-2xl text-center transition-all duration-300 bg-bg-card/70 border-white/10 hover:border-accent-purple/60">
-            <div className="text-3xl font-bold mb-2 text-accent-purple">{notifications.filter(n => n.category === 'achievements').length}</div>
+          <div className="p-5 border rounded-2xl text-center transition-all duration-300 bg-bg-card/70 border-white/10 hover:border-accent-teal/60">
+            <div className="text-3xl font-bold mb-2 text-accent-teal">{notifications.filter(n => n.category === 'achievements').length}</div>
             <div className="text-sm uppercase tracking-wider text-text-secondary">Achievements</div>
           </div>
         </div>
@@ -440,7 +451,7 @@ export default function NotificationsPage() {
                     {notification.primaryAction}
                   </button>
                   <button 
-                    onClick={() => handleSecondaryAction(notification.secondaryAction)}
+                    onClick={() => handleSecondaryAction(notification)}
                     className="w-full py-2.5 font-semibold rounded-lg transition-colors duration-300 bg-transparent border border-white/15 hover:border-white/30 text-text-primary"
                   >
                     {notification.secondaryAction}

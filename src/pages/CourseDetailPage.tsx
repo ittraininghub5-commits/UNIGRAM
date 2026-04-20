@@ -896,7 +896,7 @@ export default function CourseDetailPage() {
               <button
                 onClick={handleEnroll}
                 disabled={enrolling}
-                className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-8 py-4 rounded-2xl font-bold font-display transition-all shadow-lg shadow-accent-teal/20 flex items-center gap-2"
+                className="bg-accent-teal hover:brightness-110 text-bg-base px-8 py-4 rounded-2xl font-bold font-display transition-all shadow-lg shadow-accent-teal/20 flex items-center gap-2"
               >
                 {enrolling ? 'Enrolling...' : 'Enroll Now'}
                 <ChevronRight className="w-5 h-5" />
@@ -1054,7 +1054,7 @@ export default function CourseDetailPage() {
                   generatingUploadQuiz ||
                   (autoGenerateQuiz && (!uploadQuizDraft || !quizDraftVerified))
                 }
-                className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-6 py-3 rounded-xl text-sm font-bold font-display transition-all disabled:opacity-50"
+                className="bg-accent-teal hover:brightness-110 text-bg-base px-6 py-3 rounded-xl text-sm font-bold font-display transition-all disabled:opacity-50"
               >
                 {uploadingFile ? 'Uploading...' : 'Upload Content'}
               </button>
@@ -1289,7 +1289,7 @@ export default function CourseDetailPage() {
                     href={certificate.certificate_url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 bg-accent-teal text-bg-base py-4 rounded-2xl font-bold font-display hover:bg-[#00f5b4] transition-all"
+                    className="w-full flex items-center justify-center gap-2 bg-accent-teal text-bg-base py-4 rounded-2xl font-bold font-display hover:brightness-110 transition-all"
                   >
                     <Download className="w-5 h-5" />
                     Download Certificate
@@ -1315,7 +1315,7 @@ export default function CourseDetailPage() {
                     <button
                       onClick={requestCertificateApproval}
                       disabled={requestingCertificate || !canRequestCertificate}
-                      className="w-full flex items-center justify-center gap-2 bg-accent-teal text-bg-base py-4 rounded-2xl font-bold font-display hover:bg-[#00f5b4] transition-all disabled:opacity-50"
+                      className="w-full flex items-center justify-center gap-2 bg-accent-teal text-bg-base py-4 rounded-2xl font-bold font-display hover:brightness-110 transition-all disabled:opacity-50"
                     >
                       {requestingCertificate ? (
                         <>
@@ -1552,7 +1552,7 @@ function MaterialPreviewModal({
             </button>
             <button
               onClick={onEnroll}
-              className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
+              className="bg-accent-teal hover:brightness-110 text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
             >
               Enroll To Continue
             </button>
@@ -1595,7 +1595,7 @@ function QuizModal({ quiz, onClose, onComplete }: { quiz: Quiz; onClose: () => v
             <p className="text-sm text-text-secondary">This quiz has no valid questions yet. Ask your mentor to update it.</p>
             <button
               onClick={onClose}
-              className="w-full bg-accent-teal hover:bg-[#00f5b4] text-bg-base py-3 rounded-xl text-sm font-bold transition-all"
+              className="w-full bg-accent-teal hover:brightness-110 text-bg-base py-3 rounded-xl text-sm font-bold transition-all"
             >
               Close
             </button>
@@ -1681,7 +1681,7 @@ function QuizModal({ quiz, onClose, onComplete }: { quiz: Quiz; onClose: () => v
                   "w-full py-4 rounded-2xl font-bold font-display transition-all",
                   selectedOption === null 
                     ? "bg-white/5 text-text-muted cursor-not-allowed" 
-                    : "bg-accent-teal text-bg-base hover:bg-[#00f5b4]"
+                    : "bg-accent-teal text-bg-base hover:brightness-110"
                 )}
               >
                 {currentQuestion === questions.length - 1 ? 'Finish Quiz' : 'Next Question'}
@@ -1711,7 +1711,7 @@ function QuizModal({ quiz, onClose, onComplete }: { quiz: Quiz; onClose: () => v
 
               <button
                 onClick={onComplete}
-                className="w-full bg-accent-teal hover:bg-[#00f5b4] text-bg-base py-4 rounded-2xl font-bold font-display transition-all"
+                className="w-full bg-accent-teal hover:brightness-110 text-bg-base py-4 rounded-2xl font-bold font-display transition-all"
               >
                 Continue to Course
               </button>
@@ -1989,7 +1989,7 @@ function MentorQuizEditorModal({
               void handleSave();
             }}
             disabled={saving}
-            className="bg-accent-teal hover:bg-[#00f5b4] text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+            className="bg-accent-teal hover:brightness-110 text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
@@ -1998,3 +1998,4 @@ function MentorQuizEditorModal({
     </motion.div>
   );
 }
+

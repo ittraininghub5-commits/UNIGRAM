@@ -5,10 +5,19 @@ import { supabase } from '@/src/lib/supabase';
 import { safeNavigateBack } from '@/src/lib/navigation';
 import { Profile } from '@/src/types';
 import InstitutionCombobox from '@/src/components/InstitutionCombobox';
+import { AccentTheme, useTheme } from '@/src/context/ThemeContext';
 import { toast } from 'sonner';
+
+const ACCENT_OPTIONS: { value: AccentTheme; label: string; swatch: string }[] = [
+  { value: 'yellow', label: 'Yellow', swatch: 'bg-[#e6ff2f]' },
+  { value: 'green', label: 'Green', swatch: 'bg-[#3ddc97]' },
+  { value: 'blue', label: 'Blue', swatch: 'bg-[#60a5fa]' },
+  { value: 'pink', label: 'Pink', swatch: 'bg-[#f472b6]' },
+];
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const { mode, accent, setMode, setAccent } = useTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -213,6 +222,61 @@ export default function SettingsPage() {
             <LogOut className="w-4 h-4" />
             Sign Out
           </button>
+        </div>
+      </section>
+
+      <section className="bg-bg-card/70 border border-white/10 rounded-2xl p-6 space-y-5">
+        <div className="space-y-1">
+          <h2 className="text-xl font-display font-bold">Appearance</h2>
+          <p className="text-sm text-text-secondary">Choose any of the 8 combinations: `light/dark` with `yellow/green/blue/pink`.</p>
+        </div>
+
+        <div className="space-y-3">
+          <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest">Mode</span>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setMode('light')}
+              className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${
+                mode === 'light'
+                  ? 'border-accent-teal bg-accent-teal/10 text-text-primary'
+                  : 'border-white/10 text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
+              }`}
+            >
+              Light
+            </button>
+            <button
+              onClick={() => setMode('dark')}
+              className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${
+                mode === 'dark'
+                  ? 'border-accent-teal bg-accent-teal/10 text-text-primary'
+                  : 'border-white/10 text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
+              }`}
+            >
+              Dark
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <span className="text-[10px] font-mono text-text-muted uppercase tracking-widest">Accent Color</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {ACCENT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setAccent(option.value)}
+                className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${
+                  accent === option.value
+                    ? 'border-accent-teal bg-accent-teal/10 text-text-primary'
+                    : 'border-white/10 text-text-secondary hover:text-text-primary hover:bg-bg-elevated'
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span className={`w-3 h-3 rounded-full ${option.swatch}`} />
+                  {option.label}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
     </div>

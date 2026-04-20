@@ -401,7 +401,7 @@ export default function AuthPage() {
 
                     <button
                       disabled={loading}
-                      className="w-full bg-accent-teal hover:bg-[#00f5b4] text-bg-base py-3.5 rounded-xl font-bold font-display transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full bg-accent-teal hover:brightness-110 text-bg-base py-3.5 rounded-xl font-bold font-display transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       {loading ? 'Processing...' : mode === 'login' ? 'Login' : 'Sign Up'}
                       {!loading && <ArrowRight className="w-4 h-4" />}
@@ -428,7 +428,7 @@ export default function AuthPage() {
                     </p>
                     <button
                       disabled={loading}
-                      className="w-full bg-accent-teal hover:bg-[#00f5b4] text-bg-base py-3.5 rounded-xl font-bold font-display transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full bg-accent-teal hover:brightness-110 text-bg-base py-3.5 rounded-xl font-bold font-display transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       {loading ? 'Sending...' : mode === 'register' ? 'Create Account via Magic Link' : 'Send Magic Link'}
                       {!loading && <ArrowRight className="w-4 h-4" />}
@@ -503,7 +503,7 @@ export default function AuthPage() {
                 <button
                   onClick={handleSendMagicLink}
                   disabled={loading || !email.trim()}
-                  className="w-full bg-accent-teal hover:bg-[#00f5b4] text-bg-base py-3.5 rounded-xl font-bold font-display transition-all"
+                  className="w-full bg-accent-teal hover:brightness-110 text-bg-base py-3.5 rounded-xl font-bold font-display transition-all"
                 >
                   {loading ? 'Sending...' : 'Send Reset Link'}
                 </button>
@@ -545,3 +545,4 @@ function RoleOption({ selected, onClick, icon, label, sub, color }: { selected: 
     </button>
   );
 }
+

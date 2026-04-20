@@ -1,34 +1,54 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-type Theme = 'light' | 'dark';
+type ThemeMode = 'light' | 'dark';
+export type AccentTheme = 'yellow' | 'green' | 'blue' | 'pink';
 
 interface ThemeContextType {
-  theme: Theme;
+  theme: ThemeMode;
+  mode: ThemeMode;
+  accent: AccentTheme;
+  setMode: (mode: ThemeMode) => void;
+  setAccent: (accent: AccentTheme) => void;
   toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const ACCENTS: AccentTheme[] = ['yellow', 'green', 'blue', 'pink'];
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+  const [mode, setMode] = useState<ThemeMode>(() => {
+    const savedMode = localStorage.getItem('theme-mode');
+    if (savedMode === 'light' || savedMode === 'dark') return savedMode;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  const [accent, setAccent] = useState<AccentTheme>(() => {
+    const savedAccent = localStorage.getItem('theme-accent');
+    return ACCENTS.includes(savedAccent as AccentTheme) ? (savedAccent as AccentTheme) : 'yellow';
   });
 
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+    root.classList.add(mode);
+    root.dataset.theme = mode;
+    root.dataset.accent = accent;
+    localStorage.setItem('theme-mode', mode);
+    localStorage.setItem('theme-accent', accent);
+  }, [mode, accent]);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
+  const value = useMemo<ThemeContextType>(() => ({
+    theme: mode,
+    mode,
+    accent,
+    setMode,
+    setAccent,
+    toggleTheme: () => setMode((prev) => (prev === 'light' ? 'dark' : 'light')),
+  }), [mode, accent]);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
