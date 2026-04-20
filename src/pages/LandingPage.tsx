@@ -4,13 +4,15 @@ import { cn } from '@/src/lib/utils';
 import { ArrowRight, GraduationCap, Users, Award, Shield, BarChart3, Zap } from 'lucide-react';
 import { useRef } from 'react';
 
+const easeEmphasis = [0.16, 1, 0.3, 1] as const;
+const easeSmooth = [0.22, 1, 0.36, 1] as const;
 
 const sectionReveal = {
   hidden: { opacity: 0, y: 36 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 1.0, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 1.0, ease: easeEmphasis },
   },
 };
 
@@ -27,7 +29,7 @@ const staggerItem = {
     opacity: 1,
     y: 0,
     filter: 'blur(0px)',
-    transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.8, ease: easeEmphasis },
   },
 };
 
@@ -266,7 +268,7 @@ export default function LandingPage() {
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         initial={{ opacity: 0, scale: 0.96, y: 40 }}
         whileInView={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.8, ease: easeSmooth }}
         viewport={{ once: false, amount: 0.15 }}
       >
         <div className="bg-bg-card border border-white/5 rounded-[48px] p-12 md:p-20 relative overflow-hidden shadow-[0_24px_60px_rgba(4,10,10,0.5)]">
@@ -278,7 +280,7 @@ export default function LandingPage() {
               className="space-y-7"
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.6, delay: 0.2, ease: easeSmooth }}
               viewport={{ once: false }}
             >
               <span className="text-xs font-mono text-accent-teal tracking-widest uppercase">The Unigram Solution</span>
@@ -427,7 +429,7 @@ export default function LandingPage() {
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
         initial={{ opacity: 0, y: 50, scale: 0.97 }}
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.7, ease: easeSmooth }}
         viewport={{ once: false, amount: 0.2 }}
       >
         <div className="bg-bg-card border border-white/5 rounded-[32px] p-12 md:p-20 text-center relative overflow-hidden shadow-[0_24px_60px_rgba(4,10,10,0.45)]">

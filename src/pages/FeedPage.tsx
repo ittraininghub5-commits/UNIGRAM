@@ -401,10 +401,10 @@ export default function FeedPage({ profile }: FeedPageProps) {
 
   return (
     <div className="pt-24 max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8 route-transition">
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)] gap-6 items-start">
 
         {/* Main Feed */}
-        <div className="space-y-8 min-w-0">
+        <div className="space-y-8 min-w-0 lg:order-2">
           {profile?.role === 'mentor' && showCreatePostComposer && (
             <div ref={createPostSectionRef} className="editorial-card lift-on-hover rounded-3xl p-5 space-y-4">
               <div className="flex items-center justify-between gap-4">
@@ -583,7 +583,7 @@ export default function FeedPage({ profile }: FeedPageProps) {
         </div>
 
         {/* Right Sidebar */}
-        <aside className="hidden lg:block sticky top-24 space-y-5 pr-1">
+        <aside className="hidden lg:block sticky top-24 space-y-5 pr-1 lg:order-1">
           <div className="editorial-card lift-on-hover rounded-[30px] p-6 text-center space-y-4">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#43c0ff] to-[#2b7fff] p-[2px] mx-auto shadow-[0_12px_28px_rgba(67,192,255,0.22)]">
               <div className="w-full h-full rounded-full bg-bg-card overflow-hidden flex items-center justify-center text-[2rem] font-bold text-[#43c0ff]">

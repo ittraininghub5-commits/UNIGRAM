@@ -167,8 +167,8 @@ export default function Navbar({ user, profile }: NavbarProps) {
                 </div>
               </div>
             ) : (
-              <div className="hidden xl:flex items-center justify-center flex-1 min-w-0 px-4">
-                <div className="panel-pill rounded-full px-2 py-1 flex items-center gap-1 overflow-x-auto">
+              <div className="hidden lg:flex items-center justify-center flex-1 min-w-0 px-2">
+                <div className="panel-pill rounded-full px-1.5 py-1 flex items-center gap-0.5 flex-nowrap">
                   {appLinks.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -176,13 +176,13 @@ export default function Navbar({ user, profile }: NavbarProps) {
                         key={item.to}
                         to={item.to}
                         className={cn(
-                          'flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-full transition-all whitespace-nowrap',
+                          'flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-full transition-all whitespace-nowrap',
                           isActive(item.to)
                             ? 'bg-bg-elevated text-accent-teal shadow-sm'
                             : 'text-text-secondary hover:text-accent-teal hover:bg-bg-elevated'
                         )}
                       >
-                        <Icon className="w-4 h-4" />
+                        <Icon className="w-3.5 h-3.5" />
                         {item.label}
                       </Link>
                     );
@@ -297,7 +297,7 @@ export default function Navbar({ user, profile }: NavbarProps) {
 
               <button
                 onClick={() => setMobileOpen((prev) => !prev)}
-                className={cn('xl:hidden', topIconButtonClass)}
+                className={cn('lg:hidden', topIconButtonClass)}
                 aria-label="Open menu"
               >
                 {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -308,7 +308,7 @@ export default function Navbar({ user, profile }: NavbarProps) {
       </nav>
 
       {mobileOpen && isLandingPage && (
-        <div className="fixed top-[82px] left-3 right-3 z-40 xl:hidden editorial-card menu-drop rounded-2xl p-3 space-y-2">
+        <div className="fixed top-[82px] left-3 right-3 z-40 lg:hidden editorial-card menu-drop rounded-2xl p-3 space-y-2">
           {landingLinks.map((item) => (
             <button
               key={item.id}
@@ -339,7 +339,7 @@ export default function Navbar({ user, profile }: NavbarProps) {
       )}
 
       {mobileOpen && isAuthenticatedApp && (
-        <div className="fixed top-[82px] left-3 right-3 z-40 xl:hidden editorial-card menu-drop rounded-2xl p-3 space-y-2">
+        <div className="fixed top-[82px] left-3 right-3 z-40 lg:hidden editorial-card menu-drop rounded-2xl p-3 space-y-2">
           {appLinks.map((item) => {
             const Icon = item.icon;
             return (

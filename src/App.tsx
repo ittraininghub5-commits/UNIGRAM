@@ -22,6 +22,11 @@ import QuizPage from '@/src/pages/QuizPage';
 import GamesPage from '@/src/pages/GamesPage';
 import NotificationsPage from '@/src/pages/NotificationsPage';
 import SynapsePage from '@/src/pages/SynapsePage';
+import SynapseCreatePage from '@/src/pages/SynapseCreatePage';
+import SynapseDiscoverPage from '@/src/pages/SynapseDiscoverPage';
+import SynapseConnectPage from '@/src/pages/SynapseConnectPage';
+import SynapseAchievementsPage from '@/src/pages/SynapseAchievementsPage';
+import SynapseProfilePage from '@/src/pages/SynapseProfilePage';
 import { 
   ReactionGamePage, 
   TypingGamePage, 
@@ -190,6 +195,10 @@ function AnimatedAppRoutes({
 }) {
   const location = useLocation();
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search]);
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -211,6 +220,11 @@ function AnimatedAppRoutes({
 
           <Route path="/courses" element={renderAuthed(<MyCoursesPage />)} />
           <Route path="/collab" element={renderAuthed(<SynapsePage />)} />
+          <Route path="/collab/create" element={renderAuthed(<SynapseCreatePage profile={profile} />)} />
+          <Route path="/collab/discover" element={renderAuthed(<SynapseDiscoverPage profile={profile} />)} />
+          <Route path="/collab/connect" element={renderAuthed(<SynapseConnectPage profile={profile} />)} />
+          <Route path="/collab/achievements" element={renderAuthed(<SynapseAchievementsPage profile={profile} />)} />
+          <Route path="/collab/profile/:id?" element={renderAuthed(<SynapseProfilePage currentProfile={profile} />)} />
           <Route path="/certificates" element={renderAuthed(<CertificatesPage />)} />
           <Route path="/quiz" element={renderAuthed(<QuizPage />)} />
           <Route path="/notificationspage" element={renderAuthed(<NotificationsPage />)} />

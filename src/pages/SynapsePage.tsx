@@ -41,9 +41,9 @@ const flow = [
     icon: UserPlus,
     description: 'Create a profile with strengths, interests, and availability.',
     route: '/collab/create',
-    cardClass: 'bg-[linear-gradient(135deg,rgba(0,255,136,0.15)_0%,rgba(0,255,136,0.05)_100%)] border-[rgba(0,255,136,0.4)] hover:border-[rgba(0,255,136,0.7)] hover:shadow-[0_20px_40px_rgba(0,255,136,0.2)]',
-    iconClass: 'bg-[rgba(0,255,136,0.14)] text-[#00ff88]',
-    buttonClass: 'border-[rgba(0,255,136,0.25)] bg-[rgba(0,255,136,0.08)] hover:border-[rgba(0,255,136,0.6)] hover:text-[#00ff88]',
+    cardClass: 'border-white/8 bg-bg-elevated hover:border-white/15 hover:bg-bg-card hover:shadow-[0_18px_36px_rgba(4,10,10,0.28)]',
+    iconClass: 'bg-accent-teal/10 text-accent-teal',
+    buttonClass: 'border-white/10 bg-bg-elevated hover:border-accent-teal/40 hover:bg-bg-card hover:text-accent-teal',
   },
   {
     step: 2,
@@ -51,9 +51,9 @@ const flow = [
     icon: Search,
     description: 'Discover peers through skill visibility and context-aware matching.',
     route: '/collab/discover',
-    cardClass: 'bg-[linear-gradient(135deg,rgba(0,212,255,0.15)_0%,rgba(0,212,255,0.05)_100%)] border-[rgba(0,212,255,0.4)] hover:border-[rgba(0,212,255,0.7)] hover:shadow-[0_20px_40px_rgba(0,212,255,0.2)]',
-    iconClass: 'bg-[rgba(0,212,255,0.14)] text-[#00d4ff]',
-    buttonClass: 'border-[rgba(0,212,255,0.25)] bg-[rgba(0,212,255,0.08)] hover:border-[rgba(0,212,255,0.6)] hover:text-[#00d4ff]',
+    cardClass: 'border-white/8 bg-bg-elevated hover:border-white/15 hover:bg-bg-card hover:shadow-[0_18px_36px_rgba(4,10,10,0.28)]',
+    iconClass: 'bg-accent-teal/10 text-accent-teal',
+    buttonClass: 'border-white/10 bg-bg-elevated hover:border-accent-teal/40 hover:bg-bg-card hover:text-accent-teal',
   },
   {
     step: 3,
@@ -61,9 +61,9 @@ const flow = [
     icon: Handshake,
     description: 'Form teams around events, projects, and cross-disciplinary goals.',
     route: '/collab/connect',
-    cardClass: 'bg-[linear-gradient(135deg,rgba(147,112,219,0.15)_0%,rgba(147,112,219,0.05)_100%)] border-[rgba(147,112,219,0.4)] hover:border-[rgba(147,112,219,0.7)] hover:shadow-[0_20px_40px_rgba(147,112,219,0.2)]',
-    iconClass: 'bg-[rgba(147,112,219,0.14)] text-[#b794f4]',
-    buttonClass: 'border-[rgba(147,112,219,0.25)] bg-[rgba(147,112,219,0.08)] hover:border-[rgba(147,112,219,0.6)] hover:text-[#d8b4fe]',
+    cardClass: 'border-white/8 bg-bg-elevated hover:border-white/15 hover:bg-bg-card hover:shadow-[0_18px_36px_rgba(4,10,10,0.28)]',
+    iconClass: 'bg-accent-teal/10 text-accent-teal',
+    buttonClass: 'border-white/10 bg-bg-elevated hover:border-accent-teal/40 hover:bg-bg-card hover:text-accent-teal',
   },
   {
     step: 4,
@@ -71,9 +71,9 @@ const flow = [
     icon: Trophy,
     description: 'Showcase outcomes as a living academic portfolio.',
     route: '/collab/achievements',
-    cardClass: 'bg-[linear-gradient(135deg,rgba(255,192,61,0.15)_0%,rgba(255,192,61,0.05)_100%)] border-[rgba(255,192,61,0.4)] hover:border-[rgba(255,192,61,0.7)] hover:shadow-[0_20px_40px_rgba(255,192,61,0.2)]',
-    iconClass: 'bg-[rgba(255,192,61,0.14)] text-[#ffc03d]',
-    buttonClass: 'border-[rgba(255,192,61,0.25)] bg-[rgba(255,192,61,0.08)] hover:border-[rgba(255,192,61,0.6)] hover:text-[#ffc03d]',
+    cardClass: 'border-white/8 bg-bg-elevated hover:border-white/15 hover:bg-bg-card hover:shadow-[0_18px_36px_rgba(4,10,10,0.28)]',
+    iconClass: 'bg-accent-teal/10 text-accent-teal',
+    buttonClass: 'border-white/10 bg-bg-elevated hover:border-accent-teal/40 hover:bg-bg-card hover:text-accent-teal',
   },
 ];
 
@@ -92,8 +92,7 @@ export default function SynapsePage() {
         </button>
 
         {/* HERO SECTION */}
-        <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-bg-card p-8 md:p-10">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(0,224,196,0.16),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(125,92,255,0.12),transparent_32%)]" />
+        <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-bg-card p-8 md:p-10 shadow-[0_20px_44px_rgba(4,10,10,0.28)]">
           <div className="relative space-y-6">
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-2 rounded-full border border-accent-teal/20 bg-accent-teal/10 px-3 py-1 text-[11px] font-mono uppercase tracking-[0.28em] text-accent-teal">
@@ -134,7 +133,7 @@ export default function SynapsePage() {
         {/* FLOW SECTION */}
         <section className="rounded-3xl border border-white/8 bg-bg-card p-8">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-11 h-11 rounded-2xl bg-accent-purple/15 text-accent-purple flex items-center justify-center">
+            <div className="w-11 h-11 rounded-2xl bg-accent-teal/10 text-accent-teal flex items-center justify-center">
               <GitBranch className="w-5 h-5" />
             </div>
             <div>
@@ -153,7 +152,7 @@ export default function SynapsePage() {
                 className={`relative rounded-2xl border p-5 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 ${cardClass}`}
               >
                 {/* Step number top right */}
-                <span className="absolute top-4 right-4 text-[11px] font-mono text-white/20">
+                <span className="absolute top-4 right-4 text-[11px] font-mono text-text-muted">
                   0{step}
                 </span>
 
@@ -174,7 +173,7 @@ export default function SynapsePage() {
           {/* Connector line + buttons row */}
           <div className="relative">
             {/* Faint connector line behind buttons on desktop */}
-            <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-px bg-white/6 -translate-y-1/2 mx-6" />
+            <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-px bg-white/8 -translate-y-1/2 mx-6" />
 
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 relative">
               {flow.map(({ label, icon: Icon, route, buttonClass }) => (
