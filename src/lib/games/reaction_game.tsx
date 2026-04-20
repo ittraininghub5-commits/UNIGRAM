@@ -64,8 +64,9 @@ const ReactionGame: React.FC = () => {
     setLastTime(null);
     const wait = 2000 + Math.random() * 3000;
     timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = null;
       setGameState("go");
-      startTimeRef.current = Date.now();
+      startTimeRef.current = performance.now();
     }, wait);
   }, []);
 
@@ -83,7 +84,7 @@ const ReactionGame: React.FC = () => {
       setGameState("too-early");
       setTimeout(() => initRound(), 1500);
     } else if (gameState === "go") {
-      const reactionTime = Date.now() - startTimeRef.current;
+      const reactionTime = Math.max(0, Math.round(performance.now() - startTimeRef.current));
       setGameState("result");
       setLastTime(reactionTime);
       setStats(prev => {

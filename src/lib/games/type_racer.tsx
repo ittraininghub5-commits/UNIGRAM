@@ -58,6 +58,14 @@ function buildCharStates(text: string, typed: string): CharState[] {
   });
 }
 
+function getRaceText(): string {
+  const randomText = TEXTS[Math.floor(Math.random() * TEXTS.length)];
+  const words = randomText.split(" ");
+  // Pick 30–35 words
+  const targetCount = Math.floor(Math.random() * 6) + 30; // 30, 31, 32, 33, 34, or 35
+  return words.slice(0, Math.min(targetCount, words.length)).join(" ");
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const TypeRacer: React.FC = () => {
@@ -123,7 +131,7 @@ const TypeRacer: React.FC = () => {
   }, [loadBoard]);
 
   const setupRace = useCallback(() => {
-    const text = TEXTS[Math.floor(Math.random() * TEXTS.length)];
+    const text = getRaceText();
     setCurrentText(text);
     setTyped("");
     setCharStates(buildCharStates(text, ""));

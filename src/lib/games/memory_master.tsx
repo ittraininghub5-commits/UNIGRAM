@@ -59,6 +59,8 @@ const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+const STARTING_SEQUENCE_LENGTH = 5;
+
 const MemoryMaster: React.FC = () => {
   const [screen, setScreen] = useState<"setup" | "game" | "gameover">("setup");
   const [playerName, setPlayerName] = useState("");
@@ -123,12 +125,13 @@ const MemoryMaster: React.FC = () => {
 
   const nextLevel = useCallback(async () => {
     if (isPlayingRef.current) return;
-    const nextColor = COLORS[Math.floor(Math.random() * COLORS.length)];
-    const newSeq = [...sequenceRef.current, nextColor];
+    const newSeq = sequenceRef.current.length === 0
+      ? Array.from({ length: STARTING_SEQUENCE_LENGTH }, () => COLORS[Math.floor(Math.random() * COLORS.length)])
+      : [...sequenceRef.current, COLORS[Math.floor(Math.random() * COLORS.length)]];
     sequenceRef.current = newSeq;
     playerSeqRef.current = [];
     isPlayerTurnRef.current = false;
-    setLevel(prev => prev + 1);
+    setLevel(newSeq.length - STARTING_SEQUENCE_LENGTH + 1);
     setStartEnabled(false);
     await playSequence(newSeq);
   }, [playSequence]);
@@ -144,7 +147,7 @@ const MemoryMaster: React.FC = () => {
       // Wrong — game over
       isPlayerTurnRef.current = false;
       setButtonsEnabled(false);
-      const fl = sequenceRef.current.length - 1; // level reached
+      const fl = sequenceRef.current.length - STARTING_SEQUENCE_LENGTH; // level reached
       setFinalLevel(fl);
       try {
         const id = `memory:${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -239,7 +242,7 @@ const MemoryMaster: React.FC = () => {
                     onClick={nextLevel}
                     disabled={!startEnabled}
                   >
-                    {level === 0 ? "Start Level 1" : `Start Level ${level + 1}`}
+                    {level === 0 ? `Start Level 1` : `Start Level ${level + 1}`}
                   </button>
                 </>
               )}
