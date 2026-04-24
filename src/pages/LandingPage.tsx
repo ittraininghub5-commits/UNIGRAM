@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform } from 'motion/react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { cn } from '@/src/lib/utils';
 import { ArrowRight, GraduationCap, Users, Award, Shield, BarChart3, Zap } from 'lucide-react';
 import { useRef } from 'react';

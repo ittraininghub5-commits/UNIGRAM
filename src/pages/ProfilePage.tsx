@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Profile } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { cn, getInitials } from '@/src/lib/utils';

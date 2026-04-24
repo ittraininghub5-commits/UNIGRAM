@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/src/lib/supabase';
 import { cn } from '@/src/lib/utils';
 import { getHomeRouteForRole, normalizeUserRole } from '@/src/lib/roles';

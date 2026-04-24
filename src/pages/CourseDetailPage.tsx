@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/src/lib/supabase';
 import { Course, CourseMaterial, Quiz, QuizQuestion, CertificateRequest } from '@/src/types';
 import { 

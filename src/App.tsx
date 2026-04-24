@@ -1,6 +1,5 @@
-import { ReactNode, useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
 import { Profile } from '@/src/types';
@@ -36,9 +35,7 @@ import {
 
 // Components
 import Navbar from '@/src/components/Navbar';
-import AuthenticatedLayout from '@/src/components/layout/AuthenticatedLayout';
 import ErrorBoundary from '@/src/components/ErrorBoundary';
-import LiveBackground from '@/src/components/LiveBackground';
 import { useTheme } from '@/src/context/ThemeContext';
 import { getHomeRouteForRole, isMentorRole, normalizeUserRole } from '@/src/lib/roles';
 import '@/src/styles/GamesPage.css';
@@ -141,18 +138,6 @@ export default function App() {
     }
   };
 
-  const renderAuthed = (page: ReactNode) => {
-    if (!user) {
-      return <Navigate to="/auth" />;
-    }
-
-    return (
-      <AuthenticatedLayout user={user} profile={profile}>
-        {page}
-      </AuthenticatedLayout>
-    );
-  };
-
   if (loading) {
     return (
       <div className="min-height-screen bg-bg-base flex items-center justify-center">
@@ -164,82 +149,67 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <div className="min-h-screen bg-bg-base relative overflow-x-hidden">
-        <LiveBackground />
-        
-        <Navbar user={user} profile={profile} />
-        
-        <main className="relative z-10 pb-12">
-          <AnimatedAppRoutes
-            user={user}
-            profile={profile}
-            renderAuthed={renderAuthed}
-          />
-        </main>
+        <div className="min-h-screen bg-bg-base relative overflow-hidden">
+          <div className="orb orb-1"></div>
+          <div className="orb orb-2"></div>
+          
+          <Navbar user={user} profile={profile} />
+          
+          <main className="relative z-10">
+            <Routes>
+              {/* Auth Routes */}
+              <Route path="/" element={user ? <Navigate to="/feed" replace /> : <LandingPage />} />
+              <Route path="/auth" element={user ? <Navigate to="/feed" /> : <AuthPage />} />
+              
+              {/* Main Routes */}
+              <Route path="/feed" element={user ? <FeedPage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/dashboard" element={isMentorRole(profile?.role) ? <MentorDashboard profile={profile} /> : <Navigate to="/feed" />} />
+              <Route path="/profile/:id?" element={user ? <ProfilePage currentProfile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/search" element={user ? <SearchPage /> : <Navigate to="/auth" />} />
+              <Route path="/messages" element={user ? <MessagesPage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/course/:id" element={user ? <CourseDetailPage /> : <Navigate to="/auth" />} />
+              
+              {/* Course Routes */}
+              <Route path="/courses" element={user ? <MyCoursesPage /> : <Navigate to="/auth" />} />
+              <Route path="/certificates" element={user ? <CertificatesPage /> : <Navigate to="/auth" />} />
+              <Route path="/quiz" element={user ? <QuizPage /> : <Navigate to="/auth" />} />
+              <Route path="/notificationspage" element={user ? <NotificationsPage /> : <Navigate to="/auth" />} />
+              
+              {/* Collab/Synapse Routes */}
+              <Route path="/collab" element={user ? <SynapsePage /> : <Navigate to="/auth" />} />
+              <Route path="/collab/create" element={user ? <SynapseCreatePage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/collab/discover" element={user ? <SynapseDiscoverPage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/collab/connect" element={user ? <SynapseConnectPage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/collab/achievements" element={user ? <SynapseAchievementsPage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/collab/profile/:id?" element={user ? <SynapseProfilePage currentProfile={profile} /> : <Navigate to="/auth" />} />
+              
+              {/* Synapse Routes (Aliases) */}
+              <Route path="/synapse" element={user ? <SynapsePage /> : <Navigate to="/auth" />} />
+              <Route path="/synapse/create" element={user ? <SynapseCreatePage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/synapse/discover" element={user ? <SynapseDiscoverPage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/synapse/connect" element={user ? <SynapseConnectPage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/synapse/achievements" element={user ? <SynapseAchievementsPage profile={profile} /> : <Navigate to="/auth" />} />
+              <Route path="/synapse/profile/:id?" element={user ? <SynapseProfilePage currentProfile={profile} /> : <Navigate to="/auth" />} />
 
-          <Toaster position="bottom-center" theme={theme} />
+              {/* Game Routes */}
+              <Route path="/games" element={user ? <GamesPage /> : <Navigate to="/auth" />} />
+              <Route path="/game/reaction" element={user ? <ReactionGamePage /> : <Navigate to="/auth" />} />
+              <Route path="/game/typing" element={user ? <TypingGamePage /> : <Navigate to="/auth" />} />
+              <Route path="/game/memory" element={user ? <MemoryGamePage /> : <Navigate to="/auth" />} />
+              <Route path="/game/hunter" element={user ? <HunterGamePage /> : <Navigate to="/auth" />} />
+              
+              {/* Settings & Notifications */}
+              <Route path="/notifications" element={user ? <NotificationsPage /> : <Navigate to="/auth" />} />
+              <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/auth" />} />
+              
+              {/* Catch-all */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </main>
+
+          <Toaster position="bottom-center" theme={theme === 'dark' ? 'dark' : 'light'} />
         </div>
       </Router>
     </ErrorBoundary>
-  );
-}
-
-function AnimatedAppRoutes({
-  user,
-  profile,
-  renderAuthed,
-}: {
-  user: User | null;
-  profile: Profile | null;
-  renderAuthed: (page: ReactNode) => ReactNode;
-}) {
-  const location = useLocation();
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [location.pathname, location.search]);
-
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, y: 14, scale: 0.996 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -10, scale: 0.998 }}
-        transition={{ duration: 0.36, ease: [0.22, 0.8, 0.24, 1] }}
-      >
-        <Routes location={location}>
-          <Route path="/" element={user ? <Navigate to="/feed" replace /> : <LandingPage />} />
-          <Route path="/auth" element={user ? <Navigate to="/feed" /> : <AuthPage />} />
-          <Route path="/feed" element={renderAuthed(<FeedPage profile={profile} />)} />
-          <Route path="/dashboard" element={isMentorRole(profile?.role) ? renderAuthed(<MentorDashboard profile={profile} />) : <Navigate to="/feed" />} />
-          <Route path="/profile/:id?" element={renderAuthed(<ProfilePage currentProfile={profile} />)} />
-          <Route path="/search" element={renderAuthed(<SearchPage />)} />
-          <Route path="/messages" element={renderAuthed(<MessagesPage profile={profile} />)} />
-          <Route path="/course/:id" element={renderAuthed(<CourseDetailPage />)} />
-
-          <Route path="/courses" element={renderAuthed(<MyCoursesPage />)} />
-          <Route path="/collab" element={renderAuthed(<SynapsePage />)} />
-          <Route path="/collab/create" element={renderAuthed(<SynapseCreatePage profile={profile} />)} />
-          <Route path="/collab/discover" element={renderAuthed(<SynapseDiscoverPage profile={profile} />)} />
-          <Route path="/collab/connect" element={renderAuthed(<SynapseConnectPage profile={profile} />)} />
-          <Route path="/collab/achievements" element={renderAuthed(<SynapseAchievementsPage profile={profile} />)} />
-          <Route path="/collab/profile/:id?" element={renderAuthed(<SynapseProfilePage currentProfile={profile} />)} />
-          <Route path="/certificates" element={renderAuthed(<CertificatesPage />)} />
-          <Route path="/quiz" element={renderAuthed(<QuizPage />)} />
-          <Route path="/notificationspage" element={renderAuthed(<NotificationsPage />)} />
-
-          <Route path="/games" element={renderAuthed(<GamesPage />)} />
-          <Route path="/game/reaction" element={renderAuthed(<ReactionGamePage />)} />
-          <Route path="/game/typing" element={renderAuthed(<TypingGamePage />)} />
-          <Route path="/game/memory" element={renderAuthed(<MemoryGamePage />)} />
-          <Route path="/game/hunter" element={renderAuthed(<HunterGamePage />)} />
-          <Route path="/notifications" element={renderAuthed(<NotificationsPage />)} />
-          <Route path="/settings" element={renderAuthed(<SettingsPage />)} />
-
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </motion.div>
-    </AnimatePresence>
   );
 }

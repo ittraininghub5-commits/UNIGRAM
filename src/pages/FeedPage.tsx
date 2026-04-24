@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Profile, Video, Enrollment, Course } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { getAIInsightForVideo, generateAIInsight, AIInsight as AIInsightType, generateCourseMetadataFromTitle } from '@/src/services/aiService';

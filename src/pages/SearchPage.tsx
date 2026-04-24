@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, CheckCircle2, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 import { cn, getInitials } from '@/src/lib/utils';
 import { safeNavigateBack } from '@/src/lib/navigation';

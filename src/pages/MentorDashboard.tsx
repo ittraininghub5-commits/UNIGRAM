@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Profile, Course, CertificateRequest } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { cn, getInitials } from '@/src/lib/utils';
