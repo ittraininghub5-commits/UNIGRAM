@@ -1,9 +1,19 @@
 import { supabase } from '@/src/lib/supabase';
 import { Quiz } from '@/src/types';
+import { monitoring } from '@/src/monitoring';
 
 const HUGGING_FACE_SUMMARY_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
 const HUGGING_FACE_TEXT_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large";
 const HUGGING_FACE_API_KEY = import.meta.env.VITE_HUGGING_FACE_API_KEY;
+
+function getStartedAt() {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+function getDurationMs(startedAt: number) {
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  return Math.round(now - startedAt);
+}
 
 export interface AIInsight {
   id?: string;
@@ -25,10 +35,16 @@ export interface GeneratedQuizDraft {
 }
 
 export async function generateCourseMetadataFromTitle(title: string): Promise<{ description: string; tags: string[] }> {
+  const startedAt = getStartedAt();
   const cleanedTitle = title.trim();
   if (!cleanedTitle) {
     return { description: '', tags: [] };
   }
+
+  monitoring.track('ai_course_metadata_requested', {
+    title_length: cleanedTitle.length,
+    provider_configured: !!HUGGING_FACE_API_KEY,
+  });
 
   const fallbackDescription = `This course explores ${cleanedTitle} through practical examples, guided learning, and hands-on exercises.`;
   const fallbackTags = extractFallbackTags(cleanedTitle, 5);
@@ -52,6 +68,12 @@ export async function generateCourseMetadataFromTitle(title: string): Promise<{ 
           ? parsed.tags.map((tag: any) => String(tag).trim().toLowerCase()).filter(Boolean).slice(0, 5)
           : fallbackTags;
 
+        monitoring.track('ai_course_metadata_completed', {
+          duration_ms: getDurationMs(startedAt),
+          provider: 'huggingface',
+          tags_count: tags.length > 0 ? tags.length : fallbackTags.length,
+        });
+
         return {
           description,
           tags: tags.length > 0 ? tags : fallbackTags,
@@ -59,8 +81,18 @@ export async function generateCourseMetadataFromTitle(title: string): Promise<{ 
       }
     } catch (error) {
       console.warn('Hugging Face course metadata generation failed, using fallback metadata.', error);
+      monitoring.captureException(error, {
+        area: 'ai_course_metadata',
+        duration_ms: getDurationMs(startedAt),
+      });
     }
   }
+
+  monitoring.track('ai_fallback_used', {
+    area: 'course_metadata',
+    reason: HUGGING_FACE_API_KEY ? 'provider_failed' : 'provider_not_configured',
+    duration_ms: getDurationMs(startedAt),
+  });
 
   return {
     description: fallbackDescription,
@@ -110,10 +142,16 @@ export async function getAIInsightForVideo(videoId: string): Promise<AIInsight |
 }
 
 export async function generateAIInsight(videoId: string, videoTitle: string, videoDescription?: string | null): Promise<AIInsight> {
+  const startedAt = getStartedAt();
   const prompt = `Summarize the following educational video content and provide 3 key takeaways.\n\nTitle: ${videoTitle}\nDescription: ${videoDescription}`;
   const fallback = buildFallbackInsight(videoTitle, videoDescription);
   let summaryText = fallback.summary;
   let takeaways = fallback.key_takeaways;
+
+  monitoring.track('ai_video_insight_requested', {
+    video_id: videoId,
+    provider_configured: !!HUGGING_FACE_API_KEY,
+  });
 
   try {
     if (HUGGING_FACE_API_KEY) {
@@ -140,6 +178,12 @@ export async function generateAIInsight(videoId: string, videoTitle: string, vid
           .filter(Boolean)
           .slice(0, 3);
       }
+    } else {
+      monitoring.track('ai_fallback_used', {
+        area: 'video_insight',
+        video_id: videoId,
+        reason: 'provider_not_configured',
+      });
     }
 
     if (!takeaways.length) {
@@ -161,12 +205,35 @@ export async function generateAIInsight(videoId: string, videoTitle: string, vid
 
     if (error) {
       // Students may not have INSERT permission; still return generated insight for immediate UI use.
+      monitoring.track('ai_video_insight_completed', {
+        video_id: videoId,
+        duration_ms: getDurationMs(startedAt),
+        persisted: false,
+        provider: HUGGING_FACE_API_KEY ? 'huggingface' : 'fallback',
+      });
       return insightData;
     }
+
+    monitoring.track('ai_video_insight_completed', {
+      video_id: videoId,
+      duration_ms: getDurationMs(startedAt),
+      persisted: true,
+      provider: HUGGING_FACE_API_KEY ? 'huggingface' : 'fallback',
+    });
 
     return data as AIInsight;
   } catch (error) {
     console.error('Error generating AI insight:', error);
+    monitoring.captureException(error, {
+      area: 'ai_video_insight',
+      video_id: videoId,
+      duration_ms: getDurationMs(startedAt),
+    });
+    monitoring.track('ai_fallback_used', {
+      area: 'video_insight',
+      video_id: videoId,
+      duration_ms: getDurationMs(startedAt),
+    });
     return {
       video_id: videoId,
       summary: fallback.summary,
@@ -177,8 +244,15 @@ export async function generateAIInsight(videoId: string, videoTitle: string, vid
 }
 
 export async function generateQuizDraftFromContent(content: string, questionCount: number = 3): Promise<GeneratedQuizDraft> {
+  const startedAt = getStartedAt();
   const safeQuestionCount = Math.min(10, Math.max(1, Math.round(questionCount || 3)));
   let quizData: any | null = null;
+
+  monitoring.track('ai_quiz_draft_requested', {
+    question_count: safeQuestionCount,
+    content_length: content.length,
+    provider_configured: !!HUGGING_FACE_API_KEY,
+  });
 
   if (HUGGING_FACE_API_KEY) {
     const prompt = [
@@ -196,46 +270,84 @@ export async function generateQuizDraftFromContent(content: string, questionCoun
       quizData = parseJsonFromText(generatedText);
     } catch (error) {
       console.warn('Hugging Face quiz generation failed, using fallback quiz generation.', error);
+      monitoring.captureException(error, {
+        area: 'ai_quiz_draft',
+        duration_ms: getDurationMs(startedAt),
+      });
     }
   }
 
-  return normalizeQuizData(quizData, content, safeQuestionCount);
+  const draft = normalizeQuizData(quizData, content, safeQuestionCount);
+  monitoring.track('ai_quiz_draft_completed', {
+    question_count: draft.questions.length,
+    duration_ms: getDurationMs(startedAt),
+    provider: quizData ? 'huggingface' : 'fallback',
+  });
+
+  if (!quizData) {
+    monitoring.track('ai_fallback_used', {
+      area: 'quiz_draft',
+      reason: HUGGING_FACE_API_KEY ? 'provider_failed_or_invalid_json' : 'provider_not_configured',
+      duration_ms: getDurationMs(startedAt),
+    });
+  }
+
+  return draft;
 }
 
 export async function createQuizFromDraft(courseId: string, materialId: string | null, draft: GeneratedQuizDraft): Promise<Quiz> {
+  const startedAt = getStartedAt();
   const normalizedDraft = normalizeQuizData(draft, JSON.stringify(draft), draft.questions.length || 3);
 
   // 1. Create the quiz entry
-  const { data: quiz, error: quizError } = await supabase
-    .from('quizzes')
-    .insert([{
+  try {
+    const { data: quiz, error: quizError } = await supabase
+      .from('quizzes')
+      .insert([{
+        course_id: courseId,
+        material_id: materialId,
+        title: normalizedDraft.title
+      }])
+      .select()
+      .single();
+
+    if (quizError) throw quizError;
+
+    // 2. Create the questions
+    const questionsToInsert = normalizedDraft.questions.map((q) => ({
+      quiz_id: quiz.id,
+      question: q.question,
+      options: q.options,
+      correct_answer: q.correct_answer,
+      explanation: q.explanation,
+      difficulty: q.difficulty || 'medium',
+      ai_generated: true
+    }));
+
+    const { error: questionsError } = await supabase
+      .from('quiz_questions')
+      .insert(questionsToInsert);
+
+    if (questionsError) throw questionsError;
+
+    monitoring.track('ai_quiz_created', {
       course_id: courseId,
       material_id: materialId,
-      title: normalizedDraft.title
-    }])
-    .select()
-    .single();
+      quiz_id: quiz.id,
+      question_count: questionsToInsert.length,
+      duration_ms: getDurationMs(startedAt),
+    });
 
-  if (quizError) throw quizError;
-
-  // 2. Create the questions
-  const questionsToInsert = normalizedDraft.questions.map((q) => ({
-    quiz_id: quiz.id,
-    question: q.question,
-    options: q.options,
-    correct_answer: q.correct_answer,
-    explanation: q.explanation,
-    difficulty: q.difficulty || 'medium',
-    ai_generated: true
-  }));
-
-  const { error: questionsError } = await supabase
-    .from('quiz_questions')
-    .insert(questionsToInsert);
-
-  if (questionsError) throw questionsError;
-
-  return { ...quiz, questions: questionsToInsert } as Quiz;
+    return { ...quiz, questions: questionsToInsert } as Quiz;
+  } catch (error) {
+    monitoring.captureException(error, {
+      area: 'ai_quiz_create',
+      course_id: courseId,
+      material_id: materialId,
+      duration_ms: getDurationMs(startedAt),
+    });
+    throw error;
+  }
 }
 
 export async function generateQuizFromContent(
@@ -249,6 +361,13 @@ export async function generateQuizFromContent(
 }
 
 export async function generateTagsFromContent(content: string): Promise<string[]> {
+  const startedAt = getStartedAt();
+
+  monitoring.track('ai_tags_requested', {
+    content_length: content.length,
+    provider_configured: !!HUGGING_FACE_API_KEY,
+  });
+
   if (HUGGING_FACE_API_KEY) {
     const prompt = [
       "Extract exactly 5 educational topic tags from this content.",
@@ -262,17 +381,41 @@ export async function generateTagsFromContent(content: string): Promise<string[]
       const parsed = parseJsonFromText(generatedText);
 
       if (Array.isArray(parsed)) {
-        return parsed
+        const tags = parsed
           .map((tag) => String(tag).trim().toLowerCase())
           .filter(Boolean)
           .slice(0, 5);
+
+        monitoring.track('ai_tags_completed', {
+          tags_count: tags.length,
+          duration_ms: getDurationMs(startedAt),
+          provider: 'huggingface',
+        });
+
+        return tags;
       }
     } catch (error) {
       console.warn('Hugging Face tag generation failed, using fallback tags.', error);
+      monitoring.captureException(error, {
+        area: 'ai_tags',
+        duration_ms: getDurationMs(startedAt),
+      });
     }
   }
 
-  return extractFallbackTags(content, 5);
+  const fallbackTags = extractFallbackTags(content, 5);
+  monitoring.track('ai_fallback_used', {
+    area: 'tags',
+    reason: HUGGING_FACE_API_KEY ? 'provider_failed_or_invalid_json' : 'provider_not_configured',
+    duration_ms: getDurationMs(startedAt),
+  });
+  monitoring.track('ai_tags_completed', {
+    tags_count: fallbackTags.length,
+    duration_ms: getDurationMs(startedAt),
+    provider: 'fallback',
+  });
+
+  return fallbackTags;
 }
 
 async function callHuggingFace(modelUrl: string, prompt: string): Promise<any> {
@@ -281,6 +424,7 @@ async function callHuggingFace(modelUrl: string, prompt: string): Promise<any> {
   }
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
+    const startedAt = getStartedAt();
     const response = await fetch(modelUrl, {
       method: 'POST',
       headers: {
@@ -298,14 +442,35 @@ async function callHuggingFace(modelUrl: string, prompt: string): Promise<any> {
     });
 
     if (response.ok) {
+      monitoring.track('ai_provider_request_completed', {
+        provider: 'huggingface',
+        model_url: modelUrl,
+        attempt: attempt + 1,
+        status: response.status,
+        duration_ms: getDurationMs(startedAt),
+      });
       return response.json();
     }
 
     if ((response.status === 429 || response.status === 503) && attempt < 2) {
+      monitoring.track('ai_provider_request_retrying', {
+        provider: 'huggingface',
+        model_url: modelUrl,
+        attempt: attempt + 1,
+        status: response.status,
+        duration_ms: getDurationMs(startedAt),
+      });
       await new Promise((resolve) => setTimeout(resolve, 1200 * (attempt + 1)));
       continue;
     }
 
+    monitoring.track('ai_provider_request_failed', {
+      provider: 'huggingface',
+      model_url: modelUrl,
+      attempt: attempt + 1,
+      status: response.status,
+      duration_ms: getDurationMs(startedAt),
+    });
     throw new Error(`Hugging Face request failed: ${response.status}`);
   }
 

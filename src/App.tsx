@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
 import { Profile } from '@/src/types';
 import { User } from '@supabase/supabase-js';
 import SettingsPage from '@/src/pages/SettingsPage';
+import { monitoring } from '@/src/monitoring';
 
 // Pages
 import LandingPage from '@/src/pages/LandingPage';
@@ -41,6 +42,26 @@ import { getHomeRouteForRole, isMentorRole, normalizeUserRole } from '@/src/lib/
 import '@/src/styles/GamesPage.css';
 import '@/src/styles/GamePage.css';
 
+function RouteMonitoring() {
+  const location = useLocation();
+  const routeStartedAt = useRef(performance.now());
+
+  useEffect(() => {
+    const startedAt = routeStartedAt.current;
+
+    requestAnimationFrame(() => {
+      monitoring.track('page_viewed', {
+        path: location.pathname,
+        search: location.search,
+        render_duration_ms: Math.round(performance.now() - startedAt),
+      });
+      routeStartedAt.current = performance.now();
+    });
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 export default function App() {
   const { theme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
@@ -52,6 +73,9 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
+        monitoring.identify(session.user.id, {
+          email_domain: session.user.email?.split('@')[1],
+        });
         fetchProfile(session.user);
       } else {
         setLoading(false);
@@ -59,10 +83,19 @@ export default function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      monitoring.track('auth_state_changed', {
+        event: _event,
+        has_session: !!session,
+      });
+
       setUser(session?.user ?? null);
       if (session?.user) {
+        monitoring.identify(session.user.id, {
+          email_domain: session.user.email?.split('@')[1],
+        });
         fetchProfile(session.user);
       } else {
+        monitoring.reset();
         setProfile(null);
         setLoading(false);
       }
@@ -133,6 +166,10 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
+      monitoring.captureException(error, {
+        area: 'profile_fetch',
+        user_id: authUser.id,
+      });
     } finally {
       setLoading(false);
     }
@@ -149,6 +186,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Router>
+        <RouteMonitoring />
         <div className="min-h-screen bg-bg-base relative overflow-hidden">
           <div className="orb orb-1"></div>
           <div className="orb orb-2"></div>
