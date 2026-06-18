@@ -1,4 +1,5 @@
 import React from 'react';
+import { monitoring } from '@/src/monitoring';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -24,6 +25,10 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('UI crash captured by ErrorBoundary:', error, errorInfo);
+    monitoring.captureException(error, {
+      area: 'react_error_boundary',
+      component_stack: errorInfo.componentStack,
+    });
   }
 
   handleReload = () => {
