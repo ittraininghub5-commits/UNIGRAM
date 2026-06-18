@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Certificate, Profile, Recommendation } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { safeNavigateBack } from '@/src/lib/navigation';
-import { createId, loadAchievements, saveAchievements, SynapseAchievement } from '@/src/lib/synapse';
+import { createId, fetchAchievementsList, saveAchievements, SynapseAchievement } from '@/src/lib/synapse';
 
 interface SynapseAchievementsPageProps {
   profile: Profile | null;
@@ -43,7 +43,8 @@ export default function SynapseAchievementsPage({ profile }: SynapseAchievements
   };
 
   useEffect(() => {
-    setManualAchievements(loadAchievements(profile?.id));
+    if (!profile?.id) return;
+    void fetchAchievementsList(profile.id).then(setManualAchievements);
   }, [profile?.id]);
 
   useEffect(() => {

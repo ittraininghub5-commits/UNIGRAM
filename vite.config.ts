@@ -12,7 +12,14 @@ const __dirname = dirname(__filename);
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  
+
+  build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 1000,
+  },
+
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
@@ -20,7 +27,7 @@ export default defineConfig({
   },
 
   server: {
-    port: 3000, // ✅ runs on localhost:3000
+    port: 3000,
     hmr: process.env.DISABLE_HMR !== 'true',
   },
 });

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { safeStorage as storage } from "./storage";
 import { syncGameScore } from "./scoreSync";
+import { toast } from "sonner";
+import { createId } from "../synapse";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -88,6 +90,9 @@ const MemoryMaster: React.FC = () => {
 
   const getAudio = (): AudioContext => {
     if (!audioCtxRef.current) audioCtxRef.current = createAudioCtx();
+    if (audioCtxRef.current.state === 'suspended') {
+      void audioCtxRef.current.resume();
+    }
     return audioCtxRef.current;
   };
 
@@ -114,7 +119,10 @@ const MemoryMaster: React.FC = () => {
   }, [flash]);
 
   const startGame = () => {
-    if (!playerName.trim()) { alert("Please enter your name!"); return; }
+    if (!playerName.trim()) { 
+      toast.error("Please enter your name!"); 
+      return; 
+    }
     setCurrentPlayer(playerName.trim());
     sequenceRef.current = [];
     setLevel(0);
@@ -150,7 +158,7 @@ const MemoryMaster: React.FC = () => {
       const fl = sequenceRef.current.length - STARTING_SEQUENCE_LENGTH; // level reached
       setFinalLevel(fl);
       try {
-        const id = `memory:${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const id = createId('memory');
         await storage.set(id, JSON.stringify({ name: currentPlayer, level: fl, timestamp: Date.now() }), true);
         void syncGameScore({
           gameType: 'memory',

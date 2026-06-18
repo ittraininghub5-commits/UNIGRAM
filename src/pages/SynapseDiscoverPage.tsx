@@ -6,7 +6,7 @@ import { Profile } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { safeNavigateBack } from '@/src/lib/navigation';
 import { cn, getInitials } from '@/src/lib/utils';
-import { computeMatchScore, loadWorkspace } from '@/src/lib/synapse';
+import { computeMatchScore, fetchWorkspace, fetchWorkspacesBulk, SynapseWorkspace } from '@/src/lib/synapse';
 
 interface SynapseDiscoverPageProps {
   profile: Profile | null;
@@ -21,7 +21,21 @@ export default function SynapseDiscoverPage({ profile }: SynapseDiscoverPageProp
   const [followedIds, setFollowedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  const myWorkspace = useMemo(() => loadWorkspace(profile?.id), [profile?.id]);
+  const [myWorkspace, setMyWorkspace] = useState<SynapseWorkspace>({
+    headline: '',
+    skills: [],
+    interests: [],
+    availability: '',
+    projectGoals: '',
+    preferredRoles: [],
+    updatedAt: null,
+  });
+  const [workspaceByUser, setWorkspaceByUser] = useState<Map<string, SynapseWorkspace>>(new Map());
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    void fetchWorkspace(profile.id).then(setMyWorkspace);
+  }, [profile?.id]);
 
   useEffect(() => {
     void loadDiscoverData();
@@ -46,6 +60,10 @@ export default function SynapseDiscoverPage({ profile }: SynapseDiscoverPageProp
 
       setProfiles((profileRows || []) as Profile[]);
       setFollowedIds(new Set((followRows || []).map((row: any) => row.following_id)));
+
+      const ids = (profileRows || []).map((row: Profile) => row.id);
+      const workspaces = await fetchWorkspacesBulk(ids);
+      setWorkspaceByUser(workspaces);
     } catch (error) {
       console.error('Failed to load discover page:', error);
       toast.error('Unable to load Collab discovery.');
@@ -59,7 +77,15 @@ export default function SynapseDiscoverPage({ profile }: SynapseDiscoverPageProp
 
     return profiles
       .map((candidate) => {
-        const candidateWorkspace = loadWorkspace(candidate.id);
+        const candidateWorkspace = workspaceByUser.get(candidate.id) || {
+          headline: '',
+          skills: [],
+          interests: [],
+          availability: '',
+          projectGoals: '',
+          preferredRoles: [],
+          updatedAt: null,
+        };
         const sameInstitution =
           !!profile?.institution &&
           !!candidate.institution &&
@@ -101,7 +127,7 @@ export default function SynapseDiscoverPage({ profile }: SynapseDiscoverPageProp
         }
         return b.score - a.score || b.candidate.followers_count - a.candidate.followers_count;
       });
-  }, [profiles, query, roleFilter, sortBy, myWorkspace, profile?.institution]);
+  }, [profiles, query, roleFilter, sortBy, myWorkspace, profile?.institution, workspaceByUser]);
 
   const handleToggleFollow = async (targetId: string) => {
     if (!profile?.id) {

@@ -26,6 +26,17 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const transporter = emailUser && emailPass
+  ? nodemailer.createTransport({
+      host: emailHost,
+      port: emailPort,
+      secure: emailPort === 465,
+      auth: {
+        user: emailUser,
+        pass: emailPass,
+      },
+    })
+  : null;
 
 interface CertificatePayload {
   enrollmentId: string;
@@ -310,10 +321,12 @@ async function startServer() {
   const initialPort = Number(process.env.PORT || 3000);
   const maxPortAttempts = 10;
 
-  app.use(express.json());
+  app.disable("x-powered-by");
+  app.use(express.json({ limit: "1mb" }));
 
   // API routes
   app.get("/api/indian-colleges", async (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=600");
     const now = Date.now();
     if (indianCollegesCache && now - indianCollegesLastFetch < INDIAN_COLLEGES_CACHE_TTL_MS) {
       return res.json({ colleges: indianCollegesCache, source: "cache" });
@@ -409,15 +422,9 @@ async function startServer() {
         throw new Error("Unable to generate authentication link");
       }
 
-      const transporter = nodemailer.createTransport({
-        host: emailHost,
-        port: emailPort,
-        secure: emailPort === 465,
-        auth: {
-          user: emailUser,
-          pass: emailPass,
-        },
-      });
+      if (!transporter) {
+        return res.status(500).json({ error: "Email service is not configured" });
+      }
 
       const recipientName = (fullName || emailValue.split("@")[0] || "Learner").trim();
       const actionLabel = linkType === "recovery" ? "Reset Password" : "Continue To Unigram";

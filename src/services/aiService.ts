@@ -4,6 +4,9 @@ import { Quiz } from '@/src/types';
 const HUGGING_FACE_SUMMARY_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
 const HUGGING_FACE_TEXT_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large";
 const HUGGING_FACE_API_KEY = import.meta.env.VITE_HUGGING_FACE_API_KEY;
+const AI_INSIGHT_CACHE_TTL_MS = 5 * 60 * 1000;
+const aiInsightCache = new Map<string, { value: AIInsight | null; expiresAt: number }>();
+const inflightAiInsightRequests = new Map<string, Promise<AIInsight | null>>();
 
 export interface AIInsight {
   id?: string;
@@ -92,21 +95,48 @@ function buildFallbackInsight(videoTitle: string, videoDescription?: string | nu
 }
 
 export async function getAIInsightForVideo(videoId: string): Promise<AIInsight | null> {
-  try {
-    const { data, error } = await supabase
-      .from('ai_insights')
-      .select('*')
-      .eq('video_id', videoId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    
-    if (error) throw error;
-    return data as AIInsight | null;
-  } catch (error) {
-    console.error('Error fetching AI insight:', error);
-    return null;
+  const now = Date.now();
+  const cached = aiInsightCache.get(videoId);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
   }
+
+  if (cached) {
+    aiInsightCache.delete(videoId);
+  }
+
+  const inflight = inflightAiInsightRequests.get(videoId);
+  if (inflight) {
+    return inflight;
+  }
+
+  const request = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ai_insights')
+        .select('*')
+        .eq('video_id', videoId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      const value = data as AIInsight | null;
+      aiInsightCache.set(videoId, {
+        value,
+        expiresAt: now + AI_INSIGHT_CACHE_TTL_MS,
+      });
+      return value;
+    } catch (error) {
+      console.error('Error fetching AI insight:', error);
+      return null;
+    } finally {
+      inflightAiInsightRequests.delete(videoId);
+    }
+  })();
+
+  inflightAiInsightRequests.set(videoId, request);
+  return request;
 }
 
 export async function generateAIInsight(videoId: string, videoTitle: string, videoDescription?: string | null): Promise<AIInsight> {
@@ -204,38 +234,47 @@ export async function generateQuizDraftFromContent(content: string, questionCoun
 
 export async function createQuizFromDraft(courseId: string, materialId: string | null, draft: GeneratedQuizDraft): Promise<Quiz> {
   const normalizedDraft = normalizeQuizData(draft, JSON.stringify(draft), draft.questions.length || 3);
+  
+  try {
+    // 1. Create the quiz entry
+    const { data: quiz, error: quizError } = await supabase
+      .from('quizzes')
+      .insert([{
+        course_id: courseId,
+        material_id: materialId,
+        title: normalizedDraft.title
+      }])
+      .select()
+      .single();
 
-  // 1. Create the quiz entry
-  const { data: quiz, error: quizError } = await supabase
-    .from('quizzes')
-    .insert([{
-      course_id: courseId,
-      material_id: materialId,
-      title: normalizedDraft.title
-    }])
-    .select()
-    .single();
+    if (quizError) throw quizError;
 
-  if (quizError) throw quizError;
+    // 2. Create the questions
+    const questionsToInsert = normalizedDraft.questions.map((q) => ({
+      quiz_id: quiz.id,
+      question: q.question,
+      options: q.options,
+      correct_answer: q.correct_answer,
+      explanation: q.explanation,
+      difficulty: q.difficulty || 'medium',
+      ai_generated: true
+    }));
 
-  // 2. Create the questions
-  const questionsToInsert = normalizedDraft.questions.map((q) => ({
-    quiz_id: quiz.id,
-    question: q.question,
-    options: q.options,
-    correct_answer: q.correct_answer,
-    explanation: q.explanation,
-    difficulty: q.difficulty || 'medium',
-    ai_generated: true
-  }));
+    const { error: questionsError } = await supabase
+      .from('quiz_questions')
+      .insert(questionsToInsert);
 
-  const { error: questionsError } = await supabase
-    .from('quiz_questions')
-    .insert(questionsToInsert);
+    if (questionsError) {
+      // Attempt to cleanup the orphaned quiz
+      await supabase.from('quizzes').delete().eq('id', quiz.id);
+      throw questionsError;
+    }
 
-  if (questionsError) throw questionsError;
-
-  return { ...quiz, questions: questionsToInsert } as Quiz;
+    return { ...quiz, questions: questionsToInsert } as Quiz;
+  } catch (error) {
+    console.error('Quiz creation failed:', error);
+    throw error;
+  }
 }
 
 export async function generateQuizFromContent(

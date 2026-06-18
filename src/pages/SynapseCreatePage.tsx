@@ -9,9 +9,9 @@ import InstitutionCombobox from '@/src/components/InstitutionCombobox';
 import CountryPhoneInput from '@/src/components/CountryPhoneInput';
 import {
   formatListForInput,
-  loadWorkspace,
+  fetchWorkspace,
   parseCommaSeparatedList,
-  saveWorkspace,
+  persistWorkspace,
 } from '@/src/lib/synapse';
 
 interface SynapseCreatePageProps {
@@ -20,20 +20,12 @@ interface SynapseCreatePageProps {
 
 export default function SynapseCreatePage({ profile }: SynapseCreatePageProps) {
   const navigate = useNavigate();
-  const workspace = useMemo(() => loadWorkspace(profile?.id), [profile?.id]);
-
-  const [fullName, setFullName] = useState(profile?.full_name || '');
-  const [bio, setBio] = useState(profile?.bio || '');
-  const [institution, setInstitution] = useState(profile?.institution || '');
-  const [phone, setPhone] = useState(profile?.phone || '');
-  const [headline, setHeadline] = useState(workspace.headline);
-  const [skillsInput, setSkillsInput] = useState(formatListForInput(workspace.skills));
-  const [interestsInput, setInterestsInput] = useState(formatListForInput(workspace.interests));
-  const [availability, setAvailability] = useState(workspace.availability);
-  const [projectGoals, setProjectGoals] = useState(workspace.projectGoals);
-  const [preferredRolesInput, setPreferredRolesInput] = useState(
-    formatListForInput(workspace.preferredRoles),
-  );
+  const [headline, setHeadline] = useState('');
+  const [skillsInput, setSkillsInput] = useState('');
+  const [interestsInput, setInterestsInput] = useState('');
+  const [availability, setAvailability] = useState('');
+  const [projectGoals, setProjectGoals] = useState('');
+  const [preferredRolesInput, setPreferredRolesInput] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -42,6 +34,23 @@ export default function SynapseCreatePage({ profile }: SynapseCreatePageProps) {
     setInstitution(profile?.institution || '');
     setPhone(profile?.phone || '');
   }, [profile]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    void fetchWorkspace(profile.id).then((loaded) => {
+      setHeadline(loaded.headline);
+      setSkillsInput(formatListForInput(loaded.skills));
+      setInterestsInput(formatListForInput(loaded.interests));
+      setAvailability(loaded.availability);
+      setProjectGoals(loaded.projectGoals);
+      setPreferredRolesInput(formatListForInput(loaded.preferredRoles));
+    });
+  }, [profile?.id]);
+
+  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [bio, setBio] = useState(profile?.bio || '');
+  const [institution, setInstitution] = useState(profile?.institution || '');
+  const [phone, setPhone] = useState(profile?.phone || '');
 
   const skillChips = useMemo(() => parseCommaSeparatedList(skillsInput), [skillsInput]);
   const interestChips = useMemo(() => parseCommaSeparatedList(interestsInput), [interestsInput]);
@@ -71,7 +80,7 @@ export default function SynapseCreatePage({ profile }: SynapseCreatePageProps) {
 
       if (error) throw error;
 
-      saveWorkspace(profile.id, {
+      await persistWorkspace(profile.id, {
         headline: headline.trim(),
         skills: parseCommaSeparatedList(skillsInput),
         interests: parseCommaSeparatedList(interestsInput),

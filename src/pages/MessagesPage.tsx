@@ -1,10 +1,14 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Profile } from '@/src/types';
 import { cn, getInitials } from '@/src/lib/utils';
 import { Send, Search, MoreVertical, Phone, Video, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
+import { createNotification } from '@/src/services/notificationService';
+
+const THREAD_INDEX_LIMIT = 200;
+const CONVERSATION_LIMIT = 100;
 
 interface Thread {
   id: string;
@@ -46,6 +50,7 @@ interface MessagesPageProps {
 
 export default function MessagesPage({ profile }: MessagesPageProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -53,97 +58,236 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [conversationByThread, setConversationByThread] = useState<Record<string, UiMessage[]>>({});
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [selectedThreadId, conversationByThread]);
-
-  useEffect(() => {
-    if (!profile?.id) {
-      setLoading(false);
-      return;
-    }
-
-    void loadMessages();
-
-    const channel = supabase
-      .channel('messages-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-        void loadMessages();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profile?.id]);
-
-  useEffect(() => {
-    if (!profile?.id) {
-      setOnlineUserIds(new Set());
-      return;
-    }
-
-    const presenceChannel = supabase.channel('messages-presence', {
-      config: {
-        presence: { key: profile.id },
-      },
-    });
-
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        const ids = new Set<string>(Object.keys(state || {}));
-        setOnlineUserIds(ids);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({
-            userId: profile.id,
-            onlineAt: new Date().toISOString(),
-          });
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(presenceChannel);
-    };
-  }, [profile?.id]);
-
-  useEffect(() => {
-    if (!profile?.id || !selectedThreadId) {
-      return;
-    }
-
-    const selected = threads.find((thread) => thread.id === selectedThreadId);
-    if (!selected || selected.unread === 0) {
-      return;
-    }
-
-    void markThreadAsRead(selectedThreadId);
-  }, [profile?.id, selectedThreadId, threads]);
-
-  const selectedThread = useMemo(() => {
-    return threads.find((thread) => thread.id === selectedThreadId) || null;
-  }, [threads, selectedThreadId]);
-
-  const filteredThreads = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) {
-      return threads;
-    }
-    return threads.filter((thread) => thread.name.toLowerCase().includes(query));
-  }, [threads, searchTerm]);
+  const [loadingConversation, setLoadingConversation] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const profileIdRef = useRef<string | null>(null);
+  profileIdRef.current = profile?.id ?? null;
 
   const preferredThreadId = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get('thread');
   }, [location.search]);
 
-  const ensureThreadExists = async (threadId: string) => {
+  const buildThreadsFromMessages = useCallback((
+    allMessages: DbMessage[],
+    profilesMap: Map<string, Profile>,
+    userId: string,
+  ) => {
+    const conversations: Record<string, UiMessage[]> = {};
+    const threadsMap = new Map<string, Thread>();
+
+    allMessages.forEach((msg) => {
+      const partnerId = msg.from_id === userId ? msg.to_id : msg.from_id;
+      if (!partnerId) return;
+
+      if (!conversations[partnerId]) {
+        conversations[partnerId] = [];
+      }
+
+      conversations[partnerId].push(dbToUi(msg, userId));
+
+      const partner = profilesMap.get(partnerId);
+      const existing = threadsMap.get(partnerId);
+      const unreadIncrement = msg.to_id === userId && !msg.read ? 1 : 0;
+      const threadName = partner?.full_name || 'Unknown User';
+      const color = THREAD_COLORS[Math.abs(hashString(partnerId)) % THREAD_COLORS.length];
+
+      if (!existing) {
+        threadsMap.set(partnerId, {
+          id: partnerId,
+          name: threadName,
+          avatarUrl: partner?.avatar_url || null,
+          lastMessage: msg.content || '',
+          time: formatRelativeTime(msg.created_at),
+          unread: unreadIncrement,
+          color,
+          lastTimestamp: new Date(msg.created_at).getTime(),
+        });
+      } else {
+        existing.lastMessage = msg.content || existing.lastMessage;
+        existing.time = formatRelativeTime(msg.created_at);
+        existing.unread += unreadIncrement;
+        existing.lastTimestamp = Math.max(existing.lastTimestamp, new Date(msg.created_at).getTime());
+      }
+    });
+
+    return {
+      conversations,
+      threads: Array.from(threadsMap.values()).sort((a, b) => b.lastTimestamp - a.lastTimestamp),
+    };
+  }, []);
+
+  const loadThreadIndex = useCallback(async () => {
+    if (!profile?.id) return;
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, from_id, to_id, content, read, created_at')
+        .or(`from_id.eq.${profile.id},to_id.eq.${profile.id}`)
+        .order('created_at', { ascending: false })
+        .limit(THREAD_INDEX_LIMIT);
+
+      if (error) throw error;
+
+      const allMessages = ((data || []) as DbMessage[]).slice().reverse();
+      const participantIds = Array.from(new Set(allMessages
+        .map((m) => (m.from_id === profile.id ? m.to_id : m.from_id))
+        .filter(Boolean)));
+
+      const profilesMap = new Map<string, Profile>();
+      if (participantIds.length > 0) {
+        const { data: participantProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', participantIds);
+
+        (participantProfiles || []).forEach((p: Profile) => profilesMap.set(p.id, p));
+      }
+
+      const { conversations, threads } = buildThreadsFromMessages(allMessages, profilesMap, profile.id);
+
+      setConversationByThread((prev) => {
+        const merged = { ...prev };
+        Object.entries(conversations).forEach(([threadId, preview]) => {
+          if (!merged[threadId]?.length) {
+            merged[threadId] = preview;
+          }
+        });
+        return merged;
+      });
+      setThreads(threads);
+      setSelectedThreadId((prev) => preferredThreadId || prev || threads[0]?.id || null);
+    } catch (err) {
+      console.error('Error loading message threads:', err);
+      toast.error('Failed to load messages.');
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.id, preferredThreadId, buildThreadsFromMessages]);
+
+  const loadThreadConversation = useCallback(async (threadId: string) => {
+    if (!profile?.id) return;
+
+    try {
+      setLoadingConversation(true);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, from_id, to_id, content, read, created_at')
+        .or(
+          `and(from_id.eq.${profile.id},to_id.eq.${threadId}),and(from_id.eq.${threadId},to_id.eq.${profile.id})`,
+        )
+        .order('created_at', { ascending: true })
+        .limit(CONVERSATION_LIMIT);
+
+      if (error) throw error;
+
+      const messages = ((data || []) as DbMessage[]).map((msg) => dbToUi(msg, profile.id));
+      setConversationByThread((prev) => ({ ...prev, [threadId]: messages }));
+    } catch (err) {
+      console.error('Error loading conversation:', err);
+      toast.error('Failed to load conversation.');
+    } finally {
+      setLoadingConversation(false);
+    }
+  }, [profile?.id]);
+
+  const applyIncomingMessage = useCallback((msg: DbMessage) => {
+    const userId = profileIdRef.current;
+    if (!userId) return;
+
+    const partnerId = msg.from_id === userId ? msg.to_id : msg.from_id;
+    if (!partnerId) return;
+
+    setConversationByThread((prev) => {
+      const existing = prev[partnerId] || [];
+      if (existing.some((item) => item.id === msg.id)) return prev;
+      return { ...prev, [partnerId]: [...existing, dbToUi(msg, userId)] };
+    });
+
+    setThreads((prev) => {
+      const color = THREAD_COLORS[Math.abs(hashString(partnerId)) % THREAD_COLORS.length];
+      const unreadIncrement = msg.to_id === userId && !msg.read ? 1 : 0;
+      const existing = prev.find((thread) => thread.id === partnerId);
+
+      if (!existing) {
+        void supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .eq('id', partnerId)
+          .maybeSingle()
+          .then(({ data }) => {
+            const name = data?.full_name || 'Unknown User';
+            setThreads((current) => {
+              if (current.some((thread) => thread.id === partnerId)) return current;
+              return [
+                {
+                  id: partnerId,
+                  name,
+                  avatarUrl: data?.avatar_url || null,
+                  lastMessage: msg.content || '',
+                  time: formatRelativeTime(msg.created_at),
+                  unread: unreadIncrement,
+                  color,
+                  lastTimestamp: new Date(msg.created_at).getTime(),
+                },
+                ...current,
+              ].sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+            });
+          });
+        return prev;
+      }
+
+      return prev
+        .map((thread) =>
+          thread.id === partnerId
+            ? {
+                ...thread,
+                lastMessage: msg.content || thread.lastMessage,
+                time: formatRelativeTime(msg.created_at),
+                unread:
+                  msg.to_id === userId && !msg.read && selectedThreadIdRef.current !== partnerId
+                    ? thread.unread + 1
+                    : thread.unread,
+                lastTimestamp: Math.max(thread.lastTimestamp, new Date(msg.created_at).getTime()),
+              }
+            : thread,
+        )
+        .sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+    });
+  }, []);
+
+  const selectedThreadIdRef = useRef<string | null>(null);
+  selectedThreadIdRef.current = selectedThreadId;
+
+  const markThreadAsRead = useCallback(async (threadId: string) => {
+    if (!profile?.id) {
+      return;
+    }
+
+    setThreads((prev) =>
+      prev.map((thread) =>
+        thread.id === threadId ? { ...thread, unread: 0 } : thread
+      )
+    );
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('to_id', profile.id)
+        .eq('from_id', threadId)
+        .eq('read', false);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error marking messages as read:', err);
+      void loadThreadIndex();
+    }
+  }, [profile?.id, loadThreadIndex]);
+
+  const ensureThreadExists = useCallback(async (threadId: string) => {
     const exists = threads.some((thread) => thread.id === threadId);
     if (exists) {
       return;
@@ -172,96 +316,122 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       },
       ...prev,
     ]);
-  };
+  }, [threads]);
 
-  const loadMessages = async () => {
+  const selectedThread = useMemo(() => {
+    return threads.find((thread) => thread.id === selectedThreadId) || null;
+  }, [threads, selectedThreadId]);
+
+  const filteredThreads = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return threads;
+    }
+    return threads.filter((thread) => thread.name.toLowerCase().includes(query));
+  }, [threads, searchTerm]);
+
+  const selectedMessages = useMemo(() => {
+    if (!selectedThreadId) return [];
+    return conversationByThread[selectedThreadId] || [];
+  }, [selectedThreadId, conversationByThread]);
+
+  const lastMessageId = selectedMessages[selectedMessages.length - 1]?.id ?? null;
+
+  const scrollToLatest = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+    });
+  }, []);
+
+  useEffect(() => {
+    scrollToLatest('auto');
+  }, [selectedThreadId, scrollToLatest]);
+
+  useEffect(() => {
+    if (!lastMessageId) return;
+    scrollToLatest('smooth');
+  }, [lastMessageId, scrollToLatest]);
+
+  useEffect(() => {
     if (!profile?.id) {
+      setLoading(false);
       return;
     }
 
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('messages')
-        .select('id, from_id, to_id, content, read, created_at')
-        .or(`from_id.eq.${profile.id},to_id.eq.${profile.id}`)
-        .order('created_at', { ascending: true })
-        .limit(300);
+    void loadThreadIndex();
 
-      if (error) throw error;
+    const channel = supabase
+      .channel(`messages-realtime-${profile.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `from_id=eq.${profile.id}` },
+        (payload) => applyIncomingMessage(payload.new as DbMessage),
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `to_id=eq.${profile.id}` },
+        (payload) => applyIncomingMessage(payload.new as DbMessage),
+      )
+      .subscribe();
 
-      const allMessages = (data || []) as DbMessage[];
-      const participantIds = Array.from(new Set(allMessages
-        .map((m) => (m.from_id === profile.id ? m.to_id : m.from_id))
-        .filter(Boolean)));
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, loadThreadIndex, applyIncomingMessage]);
 
-      const profilesMap = new Map<string, Profile>();
-      if (participantIds.length > 0) {
-        const { data: participantProfiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', participantIds);
+  useEffect(() => {
+    if (!selectedThreadId) return;
+    void loadThreadConversation(selectedThreadId);
+  }, [selectedThreadId, loadThreadConversation]);
 
-        if (!profilesError) {
-          (participantProfiles || []).forEach((p: any) => profilesMap.set(p.id, p as Profile));
-        }
-      }
+  useEffect(() => {
+    if (!profile?.id) {
+      setOnlineUserIds(new Set());
+      return;
+    }
 
-      const conversations: Record<string, UiMessage[]> = {};
-      const threadsMap = new Map<string, Thread>();
+    const presenceChannel = supabase.channel(`messages-presence-${profile.id}`, {
+      config: {
+        presence: { key: profile.id },
+      },
+    });
 
-      allMessages.forEach((msg) => {
-        const partnerId = msg.from_id === profile.id ? msg.to_id : msg.from_id;
-        if (!partnerId) return;
-
-        if (!conversations[partnerId]) {
-          conversations[partnerId] = [];
-        }
-
-        conversations[partnerId].push({
-          id: msg.id,
-          text: msg.content || '',
-          time: formatMessageTime(msg.created_at),
-          fromMe: msg.from_id === profile.id,
-        });
-
-        const partner = profilesMap.get(partnerId);
-        const existing = threadsMap.get(partnerId);
-        const unreadIncrement = msg.to_id === profile.id && !msg.read ? 1 : 0;
-        const threadName = partner?.full_name || 'Unknown User';
-        const color = THREAD_COLORS[Math.abs(hashString(partnerId)) % THREAD_COLORS.length];
-
-        if (!existing) {
-          threadsMap.set(partnerId, {
-            id: partnerId,
-            name: threadName,
-            avatarUrl: partner?.avatar_url || null,
-            lastMessage: msg.content || '',
-            time: formatRelativeTime(msg.created_at),
-            unread: unreadIncrement,
-            color,
-            lastTimestamp: new Date(msg.created_at).getTime(),
-          });
-        } else {
-          existing.lastMessage = msg.content || existing.lastMessage;
-          existing.time = formatRelativeTime(msg.created_at);
-          existing.unread += unreadIncrement;
-          existing.lastTimestamp = Math.max(existing.lastTimestamp, new Date(msg.created_at).getTime());
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const ids = new Set<string>(Object.keys(state || {}));
+        setOnlineUserIds(ids);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          try {
+            await presenceChannel.track({
+              userId: profile.id,
+              onlineAt: new Date().toISOString(),
+            });
+          } catch (err) {
+            console.error('[MessagesPage] presence track error', err);
+          }
         }
       });
 
-      const orderedThreads = Array.from(threadsMap.values()).sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+    return () => {
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [profile?.id]);
 
-      setConversationByThread(conversations);
-      setThreads(orderedThreads);
-      setSelectedThreadId((prev) => preferredThreadId || prev || orderedThreads[0]?.id || null);
-    } catch (err) {
-      console.error('Error loading messages:', err);
-      toast.error('Failed to load messages.');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (!profile?.id || !selectedThreadId) {
+      return;
     }
-  };
+
+    const selected = threads.find((thread) => thread.id === selectedThreadId);
+    if (!selected || selected.unread === 0) {
+      return;
+    }
+
+    void markThreadAsRead(selectedThreadId);
+  }, [profile?.id, selectedThreadId, threads, markThreadAsRead]);
 
   useEffect(() => {
     if (!preferredThreadId) {
@@ -270,51 +440,82 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
     void ensureThreadExists(preferredThreadId);
     setSelectedThreadId(preferredThreadId);
-  }, [preferredThreadId, threads]);
+  }, [preferredThreadId, ensureThreadExists]);
 
-  const markThreadAsRead = async (threadId: string) => {
-    if (!profile?.id) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ read: true })
-        .eq('to_id', profile.id)
-        .eq('from_id', threadId)
-        .eq('read', false);
-
-      if (error) throw error;
-      await loadMessages();
-    } catch (err) {
-      console.error('Error marking messages as read:', err);
-    }
-  };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !profile?.id || !selectedThreadId) return;
 
     const content = message.trim();
+    const threadId = selectedThreadId;
+    const optimisticId = `pending-${Date.now()}`;
     setMessage('');
 
+    setConversationByThread((prev) => ({
+      ...prev,
+      [threadId]: [
+        ...(prev[threadId] || []),
+        {
+          id: optimisticId,
+          text: content,
+          time: formatMessageTime(new Date().toISOString()),
+          fromMe: true,
+        },
+      ],
+    }));
+
+    setThreads((prev) =>
+      prev
+        .map((thread) =>
+          thread.id === threadId
+            ? {
+                ...thread,
+                lastMessage: content,
+                time: 'now',
+                lastTimestamp: Date.now(),
+              }
+            : thread,
+        )
+        .sort((a, b) => b.lastTimestamp - a.lastTimestamp),
+    );
+
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
-        .insert([{ from_id: profile.id, to_id: selectedThreadId, content }]);
+        .insert([{ from_id: profile.id, to_id: threadId, content }])
+        .select('id, from_id, to_id, content, read, created_at')
+        .single();
 
       if (error) throw error;
-      await loadMessages();
+
+      const saved = data as DbMessage;
+      setConversationByThread((prev) => ({
+        ...prev,
+        [threadId]: (prev[threadId] || [])
+          .filter((item) => item.id !== optimisticId)
+          .concat(dbToUi(saved, profile.id)),
+      }));
+
+      void createNotification({
+        userId: threadId,
+        type: 'message',
+        title: 'New message',
+        body: `${profile.full_name || 'Someone'} sent you a message`,
+        href: `/messages?thread=${profile.id}`,
+      });
     } catch (err) {
       console.error('Error sending message:', err);
+      setConversationByThread((prev) => ({
+        ...prev,
+        [threadId]: (prev[threadId] || []).filter((item) => item.id !== optimisticId),
+      }));
       toast.error('Failed to send message.');
+      setMessage(content);
     }
-  };
-
+  }, [message, profile, selectedThreadId]);
   return (
         <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="bg-bg-card border border-white/5 rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-[320px_1fr] min-h-[calc(100vh-12rem)] shadow-2xl">
+      <div className="bg-bg-card border border-white/5 rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-[320px_1fr] h-[calc(100vh-12rem)] min-h-[480px] shadow-2xl">
         
         {/* Thread List */}
         <aside className="border-r border-white/5 flex flex-col">
@@ -322,7 +523,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-lg">Messages</h2>
               <button
-                onClick={() => toast.info('Use Search to start a new conversation.')}
+                onClick={() => navigate('/search')}
                 className="text-accent-teal hover:bg-accent-teal/10 p-2 rounded-xl transition-all"
               >
                 <EditIcon />
@@ -405,7 +606,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
         </aside>
 
         {/* Chat Area */}
-        <div className="flex flex-col h-full bg-bg-base/30">
+        <div className="flex flex-col min-h-0 h-full bg-bg-base/30">
           {/* Header */}
           <header className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-bg-card/90">
             {(() => {
@@ -473,13 +674,15 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
           </header>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
             {!selectedThread ? (
               <div className="text-sm text-text-muted">Select a conversation to start chatting.</div>
-            ) : (conversationByThread[selectedThread.id] || []).length === 0 ? (
+            ) : loadingConversation ? (
+              <div className="text-sm text-text-muted">Loading conversation...</div>
+            ) : selectedMessages.length === 0 ? (
               <div className="text-sm text-text-muted">No messages yet. Say hello.</div>
-            ) : (conversationByThread[selectedThread.id] || []).map((msg, i) => (
-              <div key={i} className={cn("flex gap-3 max-w-[80%]", msg.fromMe ? "ml-auto flex-row-reverse" : "")}>
+            ) : selectedMessages.map((msg) => (
+              <div key={msg.id} className={cn("flex gap-3 max-w-[80%]", msg.fromMe ? "ml-auto flex-row-reverse" : "")}>
                 {!msg.fromMe && (
                   <div className={cn("w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-bold text-[10px] shrink-0 mt-auto", selectedThread.color)}>
                     {selectedThread.avatarUrl ? (
@@ -513,6 +716,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} aria-hidden className="h-px shrink-0" />
           </div>
 
           {/* Input */}
@@ -557,6 +761,15 @@ function EditIcon() {
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   );
+}
+
+function dbToUi(msg: DbMessage, profileId: string): UiMessage {
+  return {
+    id: msg.id,
+    text: msg.content || '',
+    time: formatMessageTime(msg.created_at),
+    fromMe: msg.from_id === profileId,
+  };
 }
 
 function formatRelativeTime(timestamp: string): string {

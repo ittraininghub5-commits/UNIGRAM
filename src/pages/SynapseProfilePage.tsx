@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Clock3, Lightbulb, MessageSquare, UserRound, Wrench } from 'lucide-react';
 import { Profile } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { safeNavigateBack } from '@/src/lib/navigation';
 import { getInitials } from '@/src/lib/utils';
-import { loadWorkspace } from '@/src/lib/synapse';
+import { fetchWorkspace, SynapseWorkspace } from '@/src/lib/synapse';
 
 interface SynapseProfilePageProps {
   currentProfile: Profile | null;
@@ -40,7 +40,20 @@ export default function SynapseProfilePage({ currentProfile }: SynapseProfilePag
     void loadProfile();
   }, [id, currentProfile?.id]);
 
-  const workspace = useMemo(() => loadWorkspace(profile?.id), [profile?.id]);
+  const [workspace, setWorkspace] = useState<SynapseWorkspace>({
+    headline: '',
+    skills: [],
+    interests: [],
+    availability: '',
+    projectGoals: '',
+    preferredRoles: [],
+    updatedAt: null,
+  });
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    void fetchWorkspace(profile.id).then(setWorkspace);
+  }, [profile?.id]);
 
   if (loading) {
     return <div className="pt-24 p-10 text-center text-text-secondary">Loading Collab profile...</div>;

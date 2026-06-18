@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/src/lib/supabase';
@@ -69,56 +69,8 @@ export default function CourseDetailPage() {
   const [generatingUploadQuiz, setGeneratingUploadQuiz] = useState(false);
   const [generatingMaterialQuizId, setGeneratingMaterialQuizId] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user && id) {
-        fetchEnrollment(session.user.id, id);
-        fetchCertificate(session.user.id, id);
-        fetchCertificateRequest(session.user.id, id);
-      }
-    });
-
-    fetchCourseData();
-  }, [id]);
-
-  useEffect(() => {
-    if (!user?.id || !id) return;
-
-    const certChannel = supabase
-      .channel(`course-certificates-${id}-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'certificates', filter: `student_id=eq.${user.id}` }, () => {
-        fetchCertificate(user.id, id);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'certificate_requests', filter: `student_id=eq.${user.id}` }, () => {
-        fetchCertificateRequest(user.id, id);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(certChannel);
-    };
-  }, [user?.id, id]);
-
-  useEffect(() => {
-    if (!id) return;
-
-    const channel = supabase
-      .channel(`course-content-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'course_materials', filter: `course_id=eq.${id}` }, () => {
-        fetchCourseData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'videos', filter: `course_id=eq.${id}` }, () => {
-        fetchCourseData();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [id]);
-
-  const fetchCertificate = async (userId: string, courseId: string) => {
+  // Memoized callback definitions - must be defined before useEffect hooks that depend on them
+  const fetchCertificate = useCallback(async (userId: string, courseId: string) => {
     try {
       const { data, error } = await supabase
         .from('certificates')
@@ -132,9 +84,9 @@ export default function CourseDetailPage() {
     } catch (error) {
       console.error('Error fetching certificate:', error);
     }
-  };
+  }, []);
 
-  const fetchCertificateRequest = async (userId: string, courseId: string) => {
+  const fetchCertificateRequest = useCallback(async (userId: string, courseId: string) => {
     try {
       const { data, error } = await supabase
         .from('certificate_requests')
@@ -148,9 +100,9 @@ export default function CourseDetailPage() {
     } catch (error) {
       console.error('Error fetching certificate request:', error);
     }
-  };
+  }, []);
 
-  const fetchEnrollment = async (userId: string, courseId: string) => {
+  const fetchEnrollment = useCallback(async (userId: string, courseId: string) => {
     try {
       const { data, error } = await supabase
         .from('enrollments')
@@ -174,9 +126,9 @@ export default function CourseDetailPage() {
     } catch (error) {
       console.error('Error fetching enrollment:', error);
     }
-  };
+  }, []);
 
-  const fetchCourseData = async () => {
+  const fetchCourseData = useCallback(async () => {
     if (!id) return;
     try {
       const { data: courseData, error: courseError } = await supabase
@@ -219,9 +171,58 @@ export default function CourseDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const handleEnroll = async () => {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user && id) {
+        fetchEnrollment(session.user.id, id);
+        fetchCertificate(session.user.id, id);
+        fetchCertificateRequest(session.user.id, id);
+      }
+    });
+
+    fetchCourseData();
+  }, [id, fetchEnrollment, fetchCertificate, fetchCertificateRequest, fetchCourseData]);
+
+  useEffect(() => {
+    if (!user?.id || !id) return;
+
+    const certChannel = supabase
+      .channel(`course-certificates-${id}-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'certificates', filter: `student_id=eq.${user.id}` }, () => {
+        fetchCertificate(user.id, id);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'certificate_requests', filter: `student_id=eq.${user.id}` }, () => {
+        fetchCertificateRequest(user.id, id);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(certChannel);
+    };
+  }, [user?.id, id, fetchCertificate, fetchCertificateRequest]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`course-content-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'course_materials', filter: `course_id=eq.${id}` }, () => {
+        fetchCourseData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'videos', filter: `course_id=eq.${id}` }, () => {
+        fetchCourseData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, fetchCourseData]);
+
+  const handleEnroll = useCallback(async () => {
     if (!user) {
       navigate('/auth');
       return;
@@ -251,9 +252,9 @@ export default function CourseDetailPage() {
     } finally {
       setEnrolling(false);
     }
-  };
+  }, [user, id, navigate]);
 
-  const toggleMaterial = async (materialId: string, isQuiz: boolean = false) => {
+  const toggleMaterial = useCallback(async (materialId: string, isQuiz: boolean = false) => {
     if (!enrollment || !user) return;
     
     const isCompleted = !progress[materialId];
@@ -292,9 +293,9 @@ export default function CourseDetailPage() {
       console.error('Error updating progress:', error);
       toast.error('Failed to update progress');
     }
-  };
+  }, [enrollment, user, progress, materials.length, quizzes.length, certificate, certificateRequest]);
 
-  const requestCertificateApproval = async () => {
+  const requestCertificateApproval = useCallback(async () => {
     if (!enrollment || !course || !user || requestingCertificate) return;
     if (!enrollment.completed) {
       toast.error('Complete the course before requesting a certificate.');
@@ -327,9 +328,9 @@ export default function CourseDetailPage() {
     } finally {
       setRequestingCertificate(false);
     }
-  };
+  }, [enrollment, course, user, requestingCertificate]);
 
-  const generateCertificateLocally = () => {
+  const generateCertificateLocally = useCallback(() => {
     if (!course || !user) {
       toast.error('Course details are not ready yet.');
       return;
@@ -400,9 +401,9 @@ export default function CourseDetailPage() {
 
     doc.save(`${courseTitle.replace(/\s+/g, '_')}_Certificate.pdf`);
     toast.success('Certificate generated locally and downloaded!');
-  };
+  }, [course, user]);
 
-  const generateCertificate = async () => {
+  const generateCertificate = useCallback(async () => {
     if (!enrollment || !course || !user || generatingCert) return;
 
     setGeneratingCert(true);
@@ -445,7 +446,7 @@ export default function CourseDetailPage() {
     } finally {
       setGeneratingCert(false);
     }
-  };
+  }, [enrollment, course, user, generatingCert, generateCertificateLocally]);
 
   const inferMaterialType = (file: File): CourseMaterial['type'] => {
     const mime = file.type.toLowerCase();
@@ -523,7 +524,7 @@ export default function CourseDetailPage() {
     }
   };
 
-  const handleGenerateUploadQuizDraft = async () => {
+  const handleGenerateUploadQuizDraft = useCallback(async () => {
     if (!course || !uploadFile) {
       toast.error('Select a file first to generate quiz questions.');
       return;
@@ -555,7 +556,7 @@ export default function CourseDetailPage() {
     } finally {
       setGeneratingUploadQuiz(false);
     }
-  };
+  }, [course, uploadFile, uploadTitle, uploadDescription, uploadQuizCount, extractUploadSourceText, formatTitleFromFileName]);
 
   const handleUploadFileChange = async (file: File | null) => {
     setUploadFile(file);
@@ -748,8 +749,8 @@ export default function CourseDetailPage() {
     return url.slice(idx + marker.length);
   };
 
-  const handleDeleteMaterial = async (material: CourseMaterial) => {
-    if (!course || !user?.id || !isMentorOwner) return;
+  const handleDeleteMaterial = useCallback(async (material: CourseMaterial) => {
+    if (!course || !user?.id) return;
 
     const ok = window.confirm(`Delete material "${material.title || 'Untitled'}"? This will also remove linked quizzes.`);
     if (!ok) return;
@@ -784,10 +785,10 @@ export default function CourseDetailPage() {
       console.error('Error deleting material:', error);
       toast.error(error.message || 'Failed to delete material.');
     }
-  };
+  }, [course, user?.id, fetchCourseData, getCourseContentStoragePath]);
 
-  const handleDeleteQuiz = async (quiz: Quiz) => {
-    if (!course || !user?.id || !isMentorOwner) return;
+  const handleDeleteQuiz = useCallback(async (quiz: Quiz) => {
+    if (!course || !user?.id) return;
 
     const ok = window.confirm(`Delete quiz "${quiz.title}" and all its questions?`);
     if (!ok) return;
@@ -806,7 +807,7 @@ export default function CourseDetailPage() {
       console.error('Error deleting quiz:', error);
       toast.error(error.message || 'Failed to delete quiz.');
     }
-  };
+  }, [course, user?.id, fetchCourseData]);
 
   const totalDurationSec = materials.reduce((sum, material) => sum + (material.duration_sec || 0), 0);
   const totalDurationHours = (totalDurationSec / 3600).toFixed(1);
