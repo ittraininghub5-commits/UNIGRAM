@@ -20,6 +20,8 @@ interface Notification {
   href?: string;
 }
 
+const DELETED_NOTIFICATIONS_STORAGE_KEY = 'unigram.deletedNotificationIds';
+
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -51,6 +53,11 @@ export default function NotificationsPage() {
         setProfile(userProfile);
 
         const notificationList: Notification[] = [];
+        const deletedNotificationIds = new Set<string>(
+          typeof window !== 'undefined'
+            ? JSON.parse(localStorage.getItem(DELETED_NOTIFICATIONS_STORAGE_KEY) || '[]')
+            : []
+        );
 
         // Fetch Messages
         const { data: messagesData } = await supabase
@@ -73,7 +80,7 @@ export default function NotificationsPage() {
               'Date': new Date(row.created_at).toLocaleDateString()
             },
             primaryAction: 'Read Message',
-            secondaryAction: 'Reply',
+            secondaryAction: 'Delete',
             type: 'message',
             createdAt: row.created_at,
             href: '/messages'
@@ -103,7 +110,7 @@ export default function NotificationsPage() {
                 'Status': statusLabel.toUpperCase()
               },
               primaryAction: statusLabel === 'approved' ? 'Download Certificate' : 'View Details',
-              secondaryAction: 'View Credentials',
+              secondaryAction: 'Delete',
               type: 'certificate',
               createdAt: row.reviewed_at || row.requested_at,
               href: '/certificates'
@@ -131,7 +138,7 @@ export default function NotificationsPage() {
                 'Course': row.course?.title || 'Course'
               },
               primaryAction: 'Review Request',
-              secondaryAction: 'Dismiss',
+              secondaryAction: 'Delete',
               type: 'certificate',
               createdAt: row.requested_at,
               href: '/dashboard'
@@ -161,7 +168,7 @@ export default function NotificationsPage() {
                 'Date': new Date(row.created_at).toLocaleDateString()
               },
               primaryAction: 'View Profile',
-              secondaryAction: 'Send Message',
+              secondaryAction: 'Delete',
               type: 'follow',
               createdAt: row.created_at,
               href: '/feed'
@@ -191,7 +198,7 @@ export default function NotificationsPage() {
                   'Course': row.course?.title || 'Course'
                 },
                 primaryAction: 'View Course',
-                secondaryAction: 'Send Welcome',
+                secondaryAction: 'Delete',
                 type: 'enrollment',
                 createdAt: row.enrolled_at,
                 href: '/dashboard'
@@ -206,7 +213,11 @@ export default function NotificationsPage() {
           return dateB - dateA;
         });
 
-        setNotifications(notificationList);
+        const filteredNotificationList = notificationList.filter(
+          (notification) => !deletedNotificationIds.has(notification.id)
+        );
+
+        setNotifications(filteredNotificationList);
       } finally {
         setLoading(false);
       }
@@ -309,13 +320,22 @@ export default function NotificationsPage() {
   };
 
   const handleSecondaryAction = (notification: Notification) => {
-    if (notification.secondaryAction === 'Reply') {
-      setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
-      navigate('/messages');
-      return;
-    }
+    if (notification.secondaryAction === 'Delete') {
+      const nextDeletedIds = new Set<string>(
+        typeof window !== 'undefined'
+          ? JSON.parse(localStorage.getItem(DELETED_NOTIFICATIONS_STORAGE_KEY) || '[]')
+          : []
+      );
 
-    if (notification.secondaryAction === 'Dismiss') {
+      nextDeletedIds.add(notification.id);
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(
+          DELETED_NOTIFICATIONS_STORAGE_KEY,
+          JSON.stringify([...nextDeletedIds])
+        );
+      }
+
       setNotifications((prev) => prev.filter((item) => item.id !== notification.id));
       return;
     }

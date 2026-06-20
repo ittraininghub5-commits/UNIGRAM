@@ -8,17 +8,15 @@ import { supabase } from '@/src/lib/supabase';
 import { Profile, Course } from '@/src/types';
 import { toast } from 'sonner';
 
-// ─── Animation variant (outside component — never recreated) ─────────────────
+// ─── Animation variants (outside component — never recreated) ─────────────────
 const RESULT_VARIANTS = {
   initial: { opacity: 0, y: 10 },
   animate: { opacity: 1, y: 0 },
   exit:    { opacity: 0, y: -8 },
 };
-const RESULT_TRANSITION = { duration: 0.24, ease: 'easeOut' };
+const RESULT_TRANSITION = { duration: 0.24, ease: [0.22, 1, 0.36, 1] };
 
-// ─── Subcomponent: FilterChip ────────────────────────────────────────────────
-// memo: only re-renders when active/label changes
-
+// ─── Subcomponent: FilterChip ─────────────────────────────────────────────────
 const FilterChip = memo(function FilterChip({
   label, active, onClick,
 }: {
@@ -41,9 +39,7 @@ const FilterChip = memo(function FilterChip({
   );
 });
 
-// ─── Subcomponent: SearchResult ──────────────────────────────────────────────
-// memo: only re-renders when its own props change, not on every keystroke
-
+// ─── Subcomponent: SearchResult ───────────────────────────────────────────────
 const SearchResult = memo(function SearchResult({
   type, icon, avatarUrl, initials, title, subtitle, badge, color, isVerified, onClick, onMessage,
 }: {
@@ -73,37 +69,37 @@ const SearchResult = memo(function SearchResult({
       )}
     >
       <button type="button" onClick={onClick} className="flex items-center gap-4 flex-1 min-w-0 text-left cursor-pointer">
-      <div className={cn(
-        'w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold shrink-0 overflow-hidden',
-        color || 'bg-bg-elevated text-text-secondary',
-      )}>
-        {(type === 'mentor' || type === 'student') && avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={title}
-            className="w-full h-full rounded-xl object-cover"
-            referrerPolicy="no-referrer"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
-              if (fallback) fallback.style.display = 'flex';
-            }}
-          />
-        ) : null}
-        <span style={{ display: (type === 'mentor' || type === 'student') && avatarUrl ? 'none' : 'flex' }}>
-          {initials || icon}
-        </span>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <p className="text-sm font-bold truncate transition-colors text-text-primary group-hover:text-accent-amber">
-            {title}
-          </p>
-          {isVerified && <CheckCircle2 className="w-3.5 h-3.5 text-accent-amber" />}
+        <div className={cn(
+          'w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold shrink-0 overflow-hidden',
+          color || 'bg-bg-elevated text-text-secondary',
+        )}>
+          {(type === 'mentor' || type === 'student') && avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={title}
+              className="w-full h-full rounded-xl object-cover"
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <span style={{ display: (type === 'mentor' || type === 'student') && avatarUrl ? 'none' : 'flex' }}>
+            {initials || icon}
+          </span>
         </div>
-        <p className="text-[11px] truncate text-text-secondary">{subtitle}</p>
-      </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-bold truncate transition-colors text-text-primary group-hover:text-accent-amber">
+              {title}
+            </p>
+            {isVerified && <CheckCircle2 className="w-3.5 h-3.5 text-accent-amber" />}
+          </div>
+          <p className="text-[11px] truncate text-text-secondary">{subtitle}</p>
+        </div>
       </button>
 
       <div className="flex items-center gap-3 shrink-0">
@@ -113,9 +109,9 @@ const SearchResult = memo(function SearchResult({
             ? 'bg-accent-amber/15 text-accent-amber'
             : badge === 'Student'
               ? 'bg-accent-teal/15 text-accent-teal'
-            : badge === 'Course'
-              ? 'bg-accent-purple/15 text-accent-purple'
-              : 'bg-white/5 text-text-secondary',
+              : badge === 'Course'
+                ? 'bg-accent-purple/15 text-accent-purple'
+                : 'bg-white/5 text-text-secondary',
         )}>
           {badge}
         </span>
@@ -137,7 +133,7 @@ const SearchResult = memo(function SearchResult({
   );
 });
 
-// ─── Skeleton loader ─────────────────────────────────────────────────────────
+// ─── Skeleton loader ──────────────────────────────────────────────────────────
 const SearchSkeleton = memo(function SearchSkeleton() {
   return (
     <div className="space-y-3">
@@ -149,107 +145,105 @@ const SearchSkeleton = memo(function SearchSkeleton() {
 });
 
 // ─── Main SearchPage ──────────────────────────────────────────────────────────
-
 export default function SearchPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
-  const [query,         setQuery]         = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');  // ✅ debounced value used for fetch
-  const [filter,        setFilter]        = useState('all');
-  const [results,       setResults]       = useState<{ mentors: Profile[]; students: Profile[]; courses: Course[] }>({ mentors: [], students: [], courses: [] });
+  const [query,          setQuery]          = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [filter,         setFilter]         = useState('all');
+  const [results,        setResults]        = useState<{ mentors: Profile[]; students: Profile[]; courses: Course[] }>({
+    mentors: [], students: [], courses: [],
+  });
   const [loading,       setLoading]       = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const searchRequestId = useRef(0);
 
-  // ✅ OPTIMIZATION 1: Read query param once on mount only
+  // Read query param once on mount only
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     setQuery(params.get('q') || '');
-  }, []); // empty deps — only runs on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ OPTIMIZATION 2: Debounce — waits 300ms after typing stops before fetching
-  // Before: fetched on every single keystroke
-  // After: only fetches when user pauses typing
+  // Debounce — waits 300 ms after typing stops before fetching
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(query);
-    }, 300);
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(timer);
   }, [query]);
 
-  // ✅ OPTIMIZATION 3: Only fetch when debounced query or filter changes
+  // Trigger search whenever debounced query or filter changes
   useEffect(() => {
     void handleSearch(debouncedQuery, filter);
-  }, [debouncedQuery, filter]);
+  }, [debouncedQuery, filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ OPTIMIZATION 4: useCallback with explicit params — no stale closure issues
   const handleSearch = useCallback(async (searchQuery: string, searchFilter: string) => {
-    const requestId = ++searchRequestId.current;
+    const requestId   = ++searchRequestId.current;
     const trimmedQuery = searchQuery.trim();
     setLoading(true);
 
     try {
-      let mentorsData: Profile[] = [];
-      let studentsData: Profile[] = [];
-      let coursesData: Course[] = [];
+      // ✅ FIX: Build all three queries up-front, then fire them in parallel with
+      // Promise.all. Previously they ran sequentially (3× round-trip latency).
+      // Now all three run at the same time — total wait = slowest single query.
 
-      if (searchFilter === 'all' || searchFilter === 'mentors') {
-        // ✅ OPTIMIZATION 5: Select only needed fields, not SELECT *
-        let mentorsQuery = supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, role, institution, followers_count, is_verified')
-          .ilike('role', 'mentor');
+      const mentorsPromise = (searchFilter === 'all' || searchFilter === 'mentors')
+        ? (() => {
+            let q = supabase
+              .from('profiles')
+              .select('id, full_name, avatar_url, role, institution, followers_count, is_verified')
+              .ilike('role', 'mentor');
+            q = trimmedQuery
+              ? q.ilike('full_name', `%${trimmedQuery}%`)
+              : q.order('followers_count', { ascending: false });
+            return q.limit(8);
+          })()
+        : Promise.resolve({ data: [], error: null });
 
-        if (trimmedQuery) {
-          mentorsQuery = mentorsQuery.ilike('full_name', `%${trimmedQuery}%`);
-        } else {
-          mentorsQuery = mentorsQuery.order('followers_count', { ascending: false });
-        }
+      const studentsPromise = (searchFilter === 'all' || searchFilter === 'students')
+        ? (() => {
+            let q = supabase
+              .from('profiles')
+              .select('id, full_name, avatar_url, role, institution, followers_count, is_verified')
+              .ilike('role', 'student');
+            q = trimmedQuery
+              ? q.or(`full_name.ilike.%${trimmedQuery}%,institution.ilike.%${trimmedQuery}%`)
+              : q.order('created_at', { ascending: false });
+            return q.limit(8);
+          })()
+        : Promise.resolve({ data: [], error: null });
 
-        const { data, error } = await mentorsQuery.limit(8);
-        if (error) throw error;
-        mentorsData = data as Profile[];
-      }
+      const coursesPromise = (searchFilter === 'all' || searchFilter === 'courses')
+        ? (() => {
+            let q = supabase
+              .from('courses')
+              .select('id, title, tags, created_at, mentor:profiles(id, full_name)')
+              .eq('status', 'live');
+            q = trimmedQuery
+              ? q.ilike('title', `%${trimmedQuery}%`)
+              : q.order('created_at', { ascending: false });
+            return q.limit(8);
+          })()
+        : Promise.resolve({ data: [], error: null });
 
-      if (searchFilter === 'all' || searchFilter === 'students') {
-        let studentsQuery = supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, role, institution, followers_count, is_verified')
-          .ilike('role', 'student');
+      // All three requests are in-flight simultaneously
+      const [mentorsResult, studentsResult, coursesResult] = await Promise.all([
+        mentorsPromise,
+        studentsPromise,
+        coursesPromise,
+      ]);
 
-        if (trimmedQuery) {
-          studentsQuery = studentsQuery.or(`full_name.ilike.%${trimmedQuery}%,institution.ilike.%${trimmedQuery}%`);
-        } else {
-          studentsQuery = studentsQuery.order('created_at', { ascending: false });
-        }
-
-        const { data, error } = await studentsQuery.limit(8);
-        if (error) throw error;
-        studentsData = data as Profile[];
-      }
-
-      if (searchFilter === 'all' || searchFilter === 'courses') {
-        // ✅ OPTIMIZATION 5: Select only needed fields for courses too
-        let coursesQuery = supabase
-          .from('courses')
-          .select('id, title, tags, created_at, mentor:profiles(id, full_name)')
-          .eq('status', 'live');
-
-        if (trimmedQuery) {
-          coursesQuery = coursesQuery.ilike('title', `%${trimmedQuery}%`);
-        } else {
-          coursesQuery = coursesQuery.order('created_at', { ascending: false });
-        }
-
-        const { data, error } = await coursesQuery.limit(8);
-        if (error) throw error;
-        coursesData = data as Course[];
-      }
-
+      // Stale-request guard — discard if a newer search has started
       if (requestId !== searchRequestId.current) return;
 
-      setResults({ mentors: mentorsData, students: studentsData, courses: coursesData });
+      if (mentorsResult.error) throw mentorsResult.error;
+      if (studentsResult.error) throw studentsResult.error;
+      if (coursesResult.error) throw coursesResult.error;
+
+      setResults({
+        mentors:  (mentorsResult.data  || []) as Profile[],
+        students: (studentsResult.data || []) as Profile[],
+        courses:  (coursesResult.data  || []) as Course[],
+      });
       setHasLoadedOnce(true);
     } catch (error) {
       console.error('Search error:', error);
@@ -259,13 +253,13 @@ export default function SearchPage() {
     }
   }, []);
 
-  // ✅ OPTIMIZATION 6: Stable callbacks for filter buttons
-  const handleFilterAll     = useCallback(() => setFilter('all'),     []);
-  const handleFilterMentors = useCallback(() => setFilter('mentors'), []);
+  // Stable filter callbacks
+  const handleFilterAll      = useCallback(() => setFilter('all'),      []);
+  const handleFilterMentors  = useCallback(() => setFilter('mentors'),  []);
   const handleFilterStudents = useCallback(() => setFilter('students'), []);
-  const handleFilterCourses = useCallback(() => setFilter('courses'), []);
-  const handleBack          = useCallback(() => safeNavigateBack(navigate, '/feed'), [navigate]);
-  const handleMessageUser   = useCallback((userId: string) => navigate(`/messages?thread=${userId}`), [navigate]);
+  const handleFilterCourses  = useCallback(() => setFilter('courses'),  []);
+  const handleBack           = useCallback(() => safeNavigateBack(navigate, '/feed'), [navigate]);
+  const handleMessageUser    = useCallback((userId: string) => navigate(`/messages?thread=${userId}`), [navigate]);
 
   const totalResults = useMemo(
     () => results.mentors.length + results.students.length + results.courses.length,
@@ -277,7 +271,7 @@ export default function SearchPage() {
       <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 text-text-primary relative">
         <div className="pointer-events-none absolute -top-8 right-6 w-56 h-56 rounded-full bg-[radial-gradient(circle,rgba(34,242,239,0.12),transparent_70%)]" />
 
-        {/* Back Button */}
+        {/* Back */}
         <div>
           <button
             onClick={handleBack}
@@ -351,7 +345,7 @@ export default function SearchPage() {
                 <SearchResult
                   key={`mentor-${mentor.id}`}
                   type="mentor"
-                  avatarUrl={mentor.avatar_url}
+                  avatarUrl={mentor.avatar_url ?? undefined}
                   initials={getInitials(mentor.full_name)}
                   title={mentor.full_name}
                   subtitle={`Mentor • ${mentor.institution || 'Expert Mentor'}`}
@@ -367,7 +361,7 @@ export default function SearchPage() {
                 <SearchResult
                   key={`student-${student.id}`}
                   type="student"
-                  avatarUrl={student.avatar_url}
+                  avatarUrl={student.avatar_url ?? undefined}
                   initials={getInitials(student.full_name)}
                   title={student.full_name}
                   subtitle={`Student • ${student.institution || 'Unigram learner'}`}

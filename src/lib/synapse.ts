@@ -47,6 +47,9 @@ const SYNAPSE_CONNECT_REQUEST_MARKERS = [
   'I would like to connect through Synapse.',
   'I would like to connect through Collab.',
 ];
+const SYNAPSE_CONNECT_ACCEPT_MARKERS = [
+  '[Collab Request Accepted]',
+];
 const SYNAPSE_CONNECT_DECLINE_MARKERS = [
   '[Synapse Connect Declined]',
   '[Collab Request Declined]',
@@ -431,14 +434,24 @@ export function isSynapseConnectRequest(content: string | null | undefined) {
   return SYNAPSE_CONNECT_REQUEST_MARKERS.some((marker) => (content || '').includes(marker));
 }
 
+export function isSynapseConnectAccepted(content: string | null | undefined) {
+  return SYNAPSE_CONNECT_ACCEPT_MARKERS.some((marker) => (content || '').includes(marker));
+}
+
 export function isSynapseConnectDecline(content: string | null | undefined) {
   return SYNAPSE_CONNECT_DECLINE_MARKERS.some((marker) => (content || '').includes(marker));
+}
+
+export function createSynapseAcceptMessage(name?: string | null) {
+  const safeName = (name || 'there').trim();
+  return `[Collab Request Accepted]
+Hi ${safeName}, thanks for reaching out through Collab. I’m happy to connect and chat here.`;
 }
 
 export function createSynapseDeclineMessage(name?: string | null) {
   const safeName = (name || 'there').trim();
   return `[Collab Request Declined]
-Hi ${safeName}, thank you for reaching out through Collab. I'm going to decline this request for now. Wishing you the best with your work ahead.`;
+Hi ${safeName}, thank you for reaching out through Collab. I’m going to pass for now, but I appreciate your interest and wish you the best.`;
 }
 
 export function isSynapseThreadAccepted(

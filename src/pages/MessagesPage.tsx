@@ -2,10 +2,17 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Profile } from '@/src/types';
 import { cn, getInitials } from '@/src/lib/utils';
-import { Send, Search, MoreVertical, Phone, Video, Info } from 'lucide-react';
+import { Send, Search, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
 import { createNotification } from '@/src/services/notificationService';
+import {
+  createSynapseAcceptMessage,
+  createSynapseDeclineMessage,
+  isSynapseConnectAccepted,
+  isSynapseConnectDecline,
+  isSynapseConnectRequest,
+} from '@/src/lib/synapse';
 
 const THREAD_INDEX_LIMIT = 200;
 const CONVERSATION_LIMIT = 100;
@@ -57,6 +64,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
   const [message, setMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [handlingCollabDecision, setHandlingCollabDecision] = useState(false);
   const [conversationByThread, setConversationByThread] = useState<Record<string, UiMessage[]>>({});
   const [loadingConversation, setLoadingConversation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -335,6 +343,18 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     return conversationByThread[selectedThreadId] || [];
   }, [selectedThreadId, conversationByThread]);
 
+  const pendingIncomingCollabRequest = useMemo(() => {
+    const hasIncomingRequest = selectedMessages.some(
+      (item) => !item.fromMe && isSynapseConnectRequest(item.text),
+    );
+    const hasDecision = selectedMessages.some(
+      (item) =>
+        (item.fromMe && (isSynapseConnectAccepted(item.text) || isSynapseConnectDecline(item.text))) ||
+        (!item.fromMe && (isSynapseConnectAccepted(item.text) || isSynapseConnectDecline(item.text))),
+    );
+    return hasIncomingRequest && !hasDecision;
+  }, [selectedMessages]);
+
   const lastMessageId = selectedMessages[selectedMessages.length - 1]?.id ?? null;
 
   const scrollToLatest = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -374,10 +394,18 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       )
       .subscribe();
 
+    const refreshInterval = window.setInterval(() => {
+      void loadThreadIndex();
+      if (selectedThreadId) {
+        void loadThreadConversation(selectedThreadId);
+      }
+    }, 15000);
+
     return () => {
       supabase.removeChannel(channel);
+      window.clearInterval(refreshInterval);
     };
-  }, [profile?.id, loadThreadIndex, applyIncomingMessage]);
+  }, [profile?.id, loadThreadIndex, applyIncomingMessage, loadThreadConversation, selectedThreadId]);
 
   useEffect(() => {
     if (!selectedThreadId) return;
@@ -445,6 +473,10 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !profile?.id || !selectedThreadId) return;
+    if (pendingIncomingCollabRequest) {
+      toast.info('Please accept or decline the collab request before sending another message.');
+      return;
+    }
 
     const content = message.trim();
     const threadId = selectedThreadId;
@@ -512,7 +544,46 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       toast.error('Failed to send message.');
       setMessage(content);
     }
-  }, [message, profile, selectedThreadId]);
+  }, [message, pendingIncomingCollabRequest, profile, selectedThreadId]);
+
+  const handleCollabDecision = useCallback(
+    async (decision: 'accept' | 'decline') => {
+      if (!profile?.id || !selectedThreadId || !selectedThread) return;
+
+      setHandlingCollabDecision(true);
+      try {
+        const content =
+          decision === 'accept'
+            ? createSynapseAcceptMessage(profile.full_name)
+            : createSynapseDeclineMessage(profile.full_name);
+
+        const { error } = await supabase
+          .from('messages')
+          .insert({
+            from_id: profile.id,
+            to_id: selectedThreadId,
+            content,
+          });
+
+        if (error) throw error;
+
+        if (decision === 'accept') {
+          toast.success('Collab request accepted — the chat is now open.');
+        } else {
+          toast.success('Your response has been sent.');
+        }
+
+        await loadThreadConversation(selectedThreadId);
+      } catch (err) {
+        console.error('Error handling collab response:', err);
+        toast.error('Failed to send your response.');
+      } finally {
+        setHandlingCollabDecision(false);
+      }
+    },
+    [loadThreadConversation, profile, selectedThread, selectedThreadId],
+  );
+
   return (
         <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="bg-bg-card border border-white/5 rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-[320px_1fr] h-[calc(100vh-12rem)] min-h-[480px] shadow-2xl">
@@ -666,10 +737,14 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
               );
             })()}
             <div className="flex items-center gap-2">
-              <HeaderAction icon={<Phone className="w-4 h-4" />} onClick={() => toast.info('Voice calling is coming soon.')} />
-              <HeaderAction icon={<Video className="w-4 h-4" />} onClick={() => toast.info('Video calling is coming soon.')} />
-              <HeaderAction icon={<Info className="w-4 h-4" />} onClick={() => toast.info('Thread details panel is coming soon.')} />
-              <HeaderAction icon={<MoreVertical className="w-4 h-4" />} onClick={() => toast.info('More actions coming soon.')} />
+              <HeaderAction
+                icon={<MoreVertical className="w-4 h-4" />}
+                onClick={() => {
+                  if (selectedThread?.id) {
+                    navigate(`/profile/${selectedThread.id}`);
+                  }
+                }}
+              />
             </div>
           </header>
 
@@ -721,18 +796,44 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
           {/* Input */}
           <footer className="p-6 bg-bg-card/90 border-t border-white/5">
+            {pendingIncomingCollabRequest && (
+              <div className="mb-4 rounded-2xl border border-accent-teal/25 bg-accent-teal/10 p-4 shadow-sm">
+                <p className="text-sm font-semibold text-text-primary">Collab request</p>
+                <p className="mt-1 text-xs leading-5 text-text-secondary">
+                  This person wants to connect with you. Accept to continue the conversation, or decline politely.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleCollabDecision('accept')}
+                    disabled={handlingCollabDecision}
+                    className="rounded-xl bg-accent-teal px-4 py-2 text-sm font-semibold text-bg-base transition-all hover:bg-[#00f5b4] disabled:opacity-50"
+                  >
+                    {handlingCollabDecision ? 'Sending...' : 'Accept'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleCollabDecision('decline')}
+                    disabled={handlingCollabDecision}
+                    className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-text-primary transition-all hover:bg-white/5 disabled:opacity-50"
+                  >
+                    {handlingCollabDecision ? 'Sending...' : 'Decline'}
+                  </button>
+                </div>
+              </div>
+            )}
             <form onSubmit={handleSendMessage} className="flex gap-3">
               <input 
                 type="text" 
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type a message..."
-                disabled={!selectedThread}
+                placeholder={pendingIncomingCollabRequest ? 'Accept or decline the request first' : 'Type a message...'}
+                disabled={!selectedThread || pendingIncomingCollabRequest}
                 className="flex-1 bg-bg-elevated border border-white/5 rounded-2xl px-6 py-3 text-sm outline-none focus:border-accent-teal transition-all"
               />
               <button 
                 type="submit"
-                disabled={!selectedThread || !message.trim()}
+                disabled={!selectedThread || !message.trim() || pendingIncomingCollabRequest}
                 className="bg-accent-teal hover:brightness-110 text-bg-base p-3 rounded-2xl transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Send className="w-5 h-5" />

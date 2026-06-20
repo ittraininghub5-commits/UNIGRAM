@@ -202,20 +202,6 @@ export default function SynapseCreatePage({ profile }: SynapseCreatePageProps) {
             </div>
           </div>
         </section>
-
-        <section className="rounded-3xl border border-white/8 bg-bg-card p-6">
-          <h2 className="font-display text-xl font-bold text-text-primary">Where Your Data Is Stored</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/8 bg-bg-elevated p-4 text-sm text-text-secondary">
-              <p className="font-semibold text-text-primary">Supabase</p>
-              <p className="mt-2">Full name, bio, institution, and phone are saved to your main profile table.</p>
-            </div>
-            <div className="rounded-2xl border border-white/8 bg-bg-elevated p-4 text-sm text-text-secondary">
-              <p className="font-semibold text-text-primary">Browser storage</p>
-              <p className="mt-2">Collab workspace fields like skills, interests, goals, and availability are currently saved locally in this browser.</p>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );

@@ -29,7 +29,7 @@ export default function InstitutionCombobox({
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const colleges = await getIndianCollegeNames(120);
+      const colleges = await getIndianCollegeNames(500);
       setOptions(colleges);
       setLoading(false);
     };
