@@ -1,5 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+// ✅ FIX: CSS moved here from App.tsx so it only loads on game routes
+import '../styles/GamePage.css';
 import TypeRacer from '../lib/games/type_racer';
 import ReactionGame from '../lib/games/reaction_game';
 import MemoryMaster from '../lib/games/memory_master';
@@ -37,6 +39,6 @@ const withBackButton = (GameComponent: React.ComponentType) => {
 };
 
 export const ReactionGamePage = withBackButton(ReactionGame);
-export const TypingGamePage = withBackButton(TypeRacer);
-export const MemoryGamePage = withBackButton(MemoryMaster);
-export const HunterGamePage = withBackButton(NumberHunter);
+export const TypingGamePage   = withBackButton(TypeRacer);
+export const MemoryGamePage   = withBackButton(MemoryMaster);
+export const HunterGamePage   = withBackButton(NumberHunter);

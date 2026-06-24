@@ -255,45 +255,61 @@ export default function CourseDetailPage() {
   }, [user, id, navigate]);
 
   const toggleMaterial = useCallback(async (materialId: string, isQuiz: boolean = false) => {
-    if (!enrollment || !user) return;
-    
+    if (!enrollment || !user || !id) return;
+
     const isCompleted = !progress[materialId];
+    const targetMaterialId = isQuiz
+      ? quizzes.find((quiz) => quiz.id === materialId)?.material_id || materialId
+      : materialId;
+
     try {
-      const { error } = await supabase
-        .from('course_progress')
-        .upsert({
-          enrollment_id: enrollment.id,
-          material_id: materialId,
-          completed: isCompleted,
-          completed_at: isCompleted ? new Date().toISOString() : null
-        }, { onConflict: 'enrollment_id,material_id' });
-      
-      if (error) throw error;
+      if (!isQuiz) {
+        const { error } = await supabase
+          .from('course_progress')
+          .upsert(
+            {
+              enrollment_id: enrollment.id,
+              material_id: targetMaterialId,
+              completed: isCompleted,
+              completed_at: isCompleted ? new Date().toISOString() : null,
+            },
+            { onConflict: 'enrollment_id,material_id' },
+          );
+
+        if (error) throw error;
+      }
 
       const newProgress = { ...progress, [materialId]: isCompleted };
       setProgress(newProgress);
-      
-      const completedCount = Object.values(newProgress).filter(Boolean).length;
-      const totalCount = materials.length + quizzes.length;
-      const progressPct = Math.round((completedCount / totalCount) * 100);
-      const isCourseCompleted = progressPct === 100;
 
-      await supabase
+      const totalCount = Math.max(materials.length + quizzes.length, 1);
+      const completedCount = Object.values(newProgress).filter(Boolean).length;
+      const progressPct = Math.min(100, Math.max(0, Math.round((completedCount / totalCount) * 100)));
+      const isCourseCompleted = progressPct >= 100;
+
+      const { error: updateError } = await supabase
         .from('enrollments')
         .update({ progress_pct: progressPct, completed: isCourseCompleted })
         .eq('id', enrollment.id);
 
-      setEnrollment((prev: any) => prev ? { ...prev, progress_pct: progressPct, completed: isCourseCompleted } : null);
+      if (updateError) throw updateError;
+
+      setEnrollment((prev: any) =>
+        prev
+          ? { ...prev, progress_pct: progressPct, completed: isCourseCompleted }
+          : null,
+      );
+
+      await fetchEnrollment(user.id, id);
 
       if (isCourseCompleted && !certificate && !certificateRequest) {
         toast.success("Congratulations! You've completed the course. Request mentor approval for your certificate.");
       }
-
     } catch (error: any) {
       console.error('Error updating progress:', error);
       toast.error('Failed to update progress');
     }
-  }, [enrollment, user, progress, materials.length, quizzes.length, certificate, certificateRequest]);
+  }, [enrollment, user, id, progress, materials.length, quizzes.length, quizzes, certificate, certificateRequest, fetchEnrollment]);
 
   const requestCertificateApproval = useCallback(async () => {
     if (!enrollment || !course || !user || requestingCertificate) return;
@@ -815,7 +831,17 @@ export default function CourseDetailPage() {
   const uploadRequested = searchParams.get('upload') === '1';
   const totalItemsCount = materials.length + quizzes.length;
   const completedItemsCount = Object.values(progress).filter(Boolean).length;
-  const currentProgressPct = enrollment?.progress_pct || 0;
+  const computedProgressPct = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round((completedItemsCount / Math.max(totalItemsCount, 1)) * 100)
+    )
+  );
+  const currentProgressPct = Math.max(
+    computedProgressPct,
+    enrollment?.progress_pct || 0
+  );
   const canRequestCertificate = !!enrollment && currentProgressPct >= 100;
 
   if (loading) {
@@ -1080,7 +1106,8 @@ export default function CourseDetailPage() {
             <div className="space-y-3">
               {materials.map((material, index) => {
                 const hasFullContentAccess = !!enrollment || isMentorOwner;
-                const isCompleted = progress[material.id];
+                const isCompleted = !!progress[material.id];
+                const shouldLockMaterial = isCompleted && material.type === 'pdf' && !isMentorOwner;
 
                 return (
                   <div 
@@ -1115,22 +1142,37 @@ export default function CourseDetailPage() {
                     </div>
 
                     {(material.file_url || material.youtube_url) && (
-                      hasFullContentAccess ? (
-                        <a
-                          href={material.youtube_url || material.file_url || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] font-bold text-accent-teal hover:underline"
-                        >
-                          Open
-                        </a>
-                      ) : (
+                      hasFullContentAccess && !shouldLockMaterial ? (
+                        material.type === 'pdf' || material.type === 'ppt' || material.type === 'notebook' ? (
+                          <a
+                            href={material.youtube_url || material.file_url || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-bold text-accent-teal hover:underline"
+                          >
+                            Open
+                          </a>
+                        ) : (
+                          <a
+                            href={material.youtube_url || material.file_url || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-bold text-accent-teal hover:underline"
+                          >
+                            Open
+                          </a>
+                        )
+                      ) : !hasFullContentAccess ? (
                         <button
                           onClick={() => setPreviewMaterial(material)}
                           className="text-[10px] font-bold text-accent-teal hover:underline"
                         >
                           Preview
                         </button>
+                      ) : (
+                        <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider">
+                          Locked
+                        </span>
                       )
                     )}
 
@@ -1407,6 +1449,7 @@ function MaterialPreviewModal({
   const [reachedLimit, setReachedLimit] = useState(false);
 
   const isVideo = material.type === 'video' || material.type === 'youtube';
+  const isPdf = material.type === 'pdf';
   const hasContentUrl = !!material.youtube_url || !!material.file_url;
 
   const getYouTubeEmbedUrl = (url: string): string => {
@@ -1517,6 +1560,12 @@ function MaterialPreviewModal({
                   onContextMenu={(e) => e.preventDefault()}
                 />
               )
+            ) : isPdf && material.file_url ? (
+              <iframe
+                src={material.file_url}
+                className="w-full min-h-[70vh] rounded-xl border border-white/10 bg-bg-elevated"
+                title={`Preview for ${material.title || 'PDF content'}`}
+              />
             ) : (
               <div className="w-full min-h-[360px] rounded-xl border border-white/10 bg-bg-elevated p-6 space-y-5">
                 <p className="text-xs font-mono text-accent-teal uppercase tracking-wider">Pages 1-5 Preview</p>
