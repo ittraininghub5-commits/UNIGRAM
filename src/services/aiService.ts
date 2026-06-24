@@ -94,6 +94,7 @@ function buildFallbackInsight(videoTitle: string, videoDescription?: string | nu
   return { summary, key_takeaways: takeaways };
 }
 
+// ─── Single-video fetch (used when a card generates a new insight) ────────────
 export async function getAIInsightForVideo(videoId: string): Promise<AIInsight | null> {
   const now = Date.now();
   const cached = aiInsightCache.get(videoId);
@@ -139,6 +140,60 @@ export async function getAIInsightForVideo(videoId: string): Promise<AIInsight |
   return request;
 }
 
+// ─── Batch fetch (used by FeedPage after loading the video list) ──────────────
+// Replaces N individual getAIInsightForVideo() calls (one per PostCard) with a
+// single Supabase query. Returns a Map so FeedPage can look up each insight O(1).
+export async function getAIInsightsForVideos(
+  videoIds: string[],
+): Promise<Map<string, AIInsight>> {
+  if (videoIds.length === 0) return new Map();
+
+  const now = Date.now();
+  const result = new Map<string, AIInsight>();
+  const uncachedIds: string[] = [];
+
+  // Serve from the shared in-memory cache where possible
+  for (const id of videoIds) {
+    const cached = aiInsightCache.get(id);
+    if (cached && cached.expiresAt > now && cached.value) {
+      result.set(id, cached.value);
+    } else {
+      uncachedIds.push(id);
+    }
+  }
+
+  if (uncachedIds.length === 0) return result;
+
+  try {
+    // One round-trip for all uncached IDs
+    const { data, error } = await supabase
+      .from('ai_insights')
+      .select('*')
+      .in('video_id', uncachedIds)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Keep only the most recent insight per video (ORDER BY already handles this)
+    const seen = new Set<string>();
+    for (const row of (data || []) as AIInsight[]) {
+      if (!seen.has(row.video_id)) {
+        seen.add(row.video_id);
+        result.set(row.video_id, row);
+        // Populate the shared cache so individual interactions stay fast
+        aiInsightCache.set(row.video_id, {
+          value: row,
+          expiresAt: now + AI_INSIGHT_CACHE_TTL_MS,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error batch-fetching AI insights:', error);
+  }
+
+  return result;
+}
+
 export async function generateAIInsight(videoId: string, videoTitle: string, videoDescription?: string | null): Promise<AIInsight> {
   const prompt = `Summarize the following educational video content and provide 3 key takeaways.\n\nTitle: ${videoTitle}\nDescription: ${videoDescription}`;
   const fallback = buildFallbackInsight(videoTitle, videoDescription);
@@ -180,7 +235,7 @@ export async function generateAIInsight(videoId: string, videoTitle: string, vid
       video_id: videoId,
       summary: summaryText,
       key_takeaways: takeaways,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase
@@ -190,9 +245,15 @@ export async function generateAIInsight(videoId: string, videoTitle: string, vid
       .single();
 
     if (error) {
-      // Students may not have INSERT permission; still return generated insight for immediate UI use.
+      // Students may not have INSERT permission; still return for immediate UI use.
       return insightData;
     }
+
+    // Keep cache in sync after a new insight is generated
+    aiInsightCache.set(videoId, {
+      value: data as AIInsight,
+      expiresAt: Date.now() + AI_INSIGHT_CACHE_TTL_MS,
+    });
 
     return data as AIInsight;
   } catch (error) {
@@ -234,22 +295,16 @@ export async function generateQuizDraftFromContent(content: string, questionCoun
 
 export async function createQuizFromDraft(courseId: string, materialId: string | null, draft: GeneratedQuizDraft): Promise<Quiz> {
   const normalizedDraft = normalizeQuizData(draft, JSON.stringify(draft), draft.questions.length || 3);
-  
+
   try {
-    // 1. Create the quiz entry
     const { data: quiz, error: quizError } = await supabase
       .from('quizzes')
-      .insert([{
-        course_id: courseId,
-        material_id: materialId,
-        title: normalizedDraft.title
-      }])
+      .insert([{ course_id: courseId, material_id: materialId, title: normalizedDraft.title }])
       .select()
       .single();
 
     if (quizError) throw quizError;
 
-    // 2. Create the questions
     const questionsToInsert = normalizedDraft.questions.map((q) => ({
       quiz_id: quiz.id,
       question: q.question,
@@ -257,7 +312,7 @@ export async function createQuizFromDraft(courseId: string, materialId: string |
       correct_answer: q.correct_answer,
       explanation: q.explanation,
       difficulty: q.difficulty || 'medium',
-      ai_generated: true
+      ai_generated: true,
     }));
 
     const { error: questionsError } = await supabase
@@ -265,7 +320,6 @@ export async function createQuizFromDraft(courseId: string, materialId: string |
       .insert(questionsToInsert);
 
     if (questionsError) {
-      // Attempt to cleanup the orphaned quiz
       await supabase.from('quizzes').delete().eq('id', quiz.id);
       throw questionsError;
     }
@@ -281,7 +335,7 @@ export async function generateQuizFromContent(
   courseId: string,
   materialId: string | null,
   content: string,
-  questionCount: number = 3
+  questionCount: number = 3,
 ): Promise<Quiz> {
   const draft = await generateQuizDraftFromContent(content, questionCount);
   return createQuizFromDraft(courseId, materialId, draft);
@@ -381,7 +435,7 @@ function parseJsonFromText(text: string): any {
       try {
         return JSON.parse(cleaned.slice(firstObject, lastObject + 1));
       } catch {
-        // Continue to array parsing
+        // fall through to array parsing
       }
     }
 
@@ -402,18 +456,24 @@ function parseJsonFromText(text: string): any {
 function normalizeQuizData(rawQuizData: any, content: string, questionCount: number): GeneratedQuizDraft {
   const safeQuestionCount = Math.min(10, Math.max(1, Math.round(questionCount || 3)));
 
-  if (rawQuizData && typeof rawQuizData === 'object' && Array.isArray(rawQuizData.questions) && rawQuizData.questions.length > 0) {
+  if (
+    rawQuizData &&
+    typeof rawQuizData === 'object' &&
+    Array.isArray(rawQuizData.questions) &&
+    rawQuizData.questions.length > 0
+  ) {
     const title = String(rawQuizData.title || 'AI Generated Quiz').slice(0, 120);
 
     const questions = rawQuizData.questions.slice(0, safeQuestionCount).map((q: any, index: number) => {
-      const rawOptions = Array.isArray(q?.options) ? q.options.map((opt: any) => String(opt).trim()).filter(Boolean) : [];
+      const rawOptions = Array.isArray(q?.options)
+        ? q.options.map((opt: any) => String(opt).trim()).filter(Boolean)
+        : [];
       const options = [...rawOptions];
-      while (options.length < 4) {
-        options.push(`Option ${options.length + 1}`);
-      }
+      while (options.length < 4) options.push(`Option ${options.length + 1}`);
 
       const rawCorrect = Number(q?.correct_answer);
-      const correctAnswer = Number.isFinite(rawCorrect) && rawCorrect >= 0 && rawCorrect < options.length ? rawCorrect : 0;
+      const correctAnswer =
+        Number.isFinite(rawCorrect) && rawCorrect >= 0 && rawCorrect < options.length ? rawCorrect : 0;
       const difficulty = q?.difficulty === 'easy' || q?.difficulty === 'hard' ? q.difficulty : 'medium';
 
       return {
@@ -446,7 +506,11 @@ function buildFallbackQuiz(content: string, questionCount: number): GeneratedQui
     .map((s) => s.trim())
     .filter((s) => s.length > 30);
 
-  const pool = sentences.length > 0 ? sentences : ['This material focuses on core learning concepts and practical understanding.'];
+  const pool =
+    sentences.length > 0
+      ? sentences
+      : ['This material focuses on core learning concepts and practical understanding.'];
+
   const questions = Array.from({ length: questionCount }).map((_, i) => {
     const correctText = pool[i % pool.length];
     const distractors = pool
@@ -455,9 +519,7 @@ function buildFallbackQuiz(content: string, questionCount: number): GeneratedQui
       .map((s) => `Not this: ${s.slice(0, 60)}...`);
 
     const options = [correctText.slice(0, 90), ...distractors];
-    while (options.length < 4) {
-      options.push(`Concept option ${options.length + 1}`);
-    }
+    while (options.length < 4) options.push(`Concept option ${options.length + 1}`);
 
     return {
       question: `Which statement best matches key idea ${i + 1}?`,
@@ -468,10 +530,7 @@ function buildFallbackQuiz(content: string, questionCount: number): GeneratedQui
     };
   });
 
-  return {
-    title: 'AI Generated Quiz',
-    questions,
-  };
+  return { title: 'AI Generated Quiz', questions };
 }
 
 function extractFallbackTags(content: string, count: number): string[] {
@@ -480,7 +539,7 @@ function extractFallbackTags(content: string, count: number): string[] {
     'you', 'your', 'about', 'into', 'their', 'there', 'what', 'when', 'where', 'which', 'will', 'would',
     'could', 'should', 'can', 'not', 'but', 'also', 'than', 'then', 'them', 'they', 'our', 'out', 'all',
     'how', 'why', 'use', 'using', 'used', 'its', 'while', 'each', 'such', 'more', 'most', 'over',
-    'under', 'after', 'before', 'between', 'been', 'being', 'only', 'very', 'just', 'like', 'into', 'through'
+    'under', 'after', 'before', 'between', 'been', 'being', 'only', 'very', 'just', 'like', 'into', 'through',
   ]);
 
   const words = content
@@ -500,9 +559,7 @@ function extractFallbackTags(content: string, count: number): string[] {
     .map(([word]) => word)
     .slice(0, count);
 
-  if (sorted.length > 0) {
-    return sorted;
-  }
-
-  return ['education', 'learning', 'course', 'practice', 'skills'].slice(0, count);
+  return sorted.length > 0
+    ? sorted
+    : ['education', 'learning', 'course', 'practice', 'skills'].slice(0, count);
 }

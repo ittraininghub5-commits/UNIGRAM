@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+// ✅ FIX: CSS moved here from App.tsx so it only loads on this route
 import '../styles/GamesPage.css';
 import { safeStorage } from '@/src/lib/games/storage';
 import { supabase } from '@/src/lib/supabase';
 import { safeNavigateBack } from '@/src/lib/navigation';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface GameCard {
   id: string;
   name: string;
@@ -36,12 +37,12 @@ interface GameScoreRow {
   created_at: string;
 }
 
-// ✅ Moved outside component — never recreated on re-render
+// ─── Constants (outside component) ───────────────────────────────────────────
 const GAMES: GameCard[] = [
-  { id: 'reaction', name: 'Lightning Reflexes', description: 'Test your reaction time and reflexes',  emoji: '⚡',  color: 'gradient-1', route: '/game/reaction' },
-  { id: 'typing',   name: 'Type Racer',          description: 'Race against time while typing',        emoji: '🏎️', color: 'gradient-2', route: '/game/typing'   },
-  { id: 'memory',   name: 'Memory Master',        description: 'Test your memory with color sequences', emoji: '🧠',  color: 'gradient-3', route: '/game/memory'   },
-  { id: 'hunter',   name: 'Number Hunter',        description: 'Hunt down the mystery number',          emoji: '🎯',  color: 'gradient-4', route: '/game/hunter'   },
+  { id: 'reaction', name: 'Lightning Reflexes', description: 'Test your reaction time and reflexes',   emoji: '⚡',  color: 'gradient-1', route: '/game/reaction' },
+  { id: 'typing',   name: 'Type Racer',          description: 'Race against time while typing',         emoji: '🏎️', color: 'gradient-2', route: '/game/typing'   },
+  { id: 'memory',   name: 'Memory Master',        description: 'Test your memory with color sequences',  emoji: '🧠',  color: 'gradient-3', route: '/game/memory'   },
+  { id: 'hunter',   name: 'Number Hunter',        description: 'Hunt down the mystery number',           emoji: '🎯',  color: 'gradient-4', route: '/game/hunter'   },
 ];
 
 const GAME_TYPE_LABELS: Record<string, string> = {
@@ -52,17 +53,12 @@ const GAME_TYPE_LABELS: Record<string, string> = {
 };
 
 const STORAGE_PREFIXES = ['score:', 'typing:', 'memory:', 'hunter:'];
-
 const DEFAULT_PLAYER_RANK: PlayerRank = { currentRank: 0, totalPlayers: 0, bestScore: 0 };
 
 // ─── Subcomponent: GameCardItem ───────────────────────────────────────────────
-// memo: only re-renders if game data changes (never — GAMES is a constant)
 const GameCardItem = memo(function GameCardItem({
   game, onPlay,
-}: {
-  game: GameCard;
-  onPlay: (route: string) => void;
-}) {
+}: { game: GameCard; onPlay: (route: string) => void }) {
   const handleClick = useCallback(() => onPlay(game.route), [onPlay, game.route]);
   return (
     <div className={`game-card ${game.color}`}>
@@ -71,15 +67,12 @@ const GameCardItem = memo(function GameCardItem({
         <h3 className="game-name">{game.name}</h3>
         <p className="game-description">{game.description}</p>
       </div>
-      <button className="play-button" onClick={handleClick}>
-        Play Now
-      </button>
+      <button className="play-button" onClick={handleClick}>Play Now</button>
     </div>
   );
 });
 
-// ─── Subcomponent: LeaderboardItem ───────────────────────────────────────────
-// memo: only re-renders if this specific entry changes
+// ─── Subcomponent: LeaderboardItem ────────────────────────────────────────────
 const LeaderboardItem = memo(function LeaderboardItem({ entry }: { entry: LeaderboardEntry }) {
   const rankDisplay = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`;
   return (
@@ -105,90 +98,102 @@ const GamesPage = () => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ useCallback — stable reference so the realtime subscription doesn't recreate
   const loadGameData = useCallback(async () => {
     try {
-      const allScores: LeaderboardEntry[] = [];
+      const currentPlayer = localStorage.getItem('currentPlayer') || 'Guest';
+      let allScores: LeaderboardEntry[] = [];
 
-      const { data: liveScores, error: liveScoresError } = await supabase
-        .from('game_scores')
-        .select('player_name, game_type, score, created_at')
-        .order('score', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(200);
+      // ✅ FIX 1: Ask the DB for only the top 10 rows instead of 200.
+      // Previously fetched 200 rows then re-sorted client-side to get the top 10
+      // — redundant work and an oversized payload.
+      // We also fetch the current player's best score in the same round-trip using
+      // a second targeted query, both fired in parallel via Promise.all.
+      const [topScoresResult, playerScoresResult] = await Promise.all([
+        supabase
+          .from('game_scores')
+          .select('player_name, game_type, score, created_at')
+          .order('score', { ascending: false })
+          .limit(10),                        // ✅ only what we display
+        supabase
+          .from('game_scores')
+          .select('player_name, score')
+          .eq('player_name', currentPlayer)
+          .order('score', { ascending: false })
+          .limit(1),                         // ✅ best score only
+      ]);
 
-      if (!liveScoresError && (liveScores || []).length > 0) {
-        (liveScores as GameScoreRow[]).forEach((row) => {
-          allScores.push({
-            rank: 0,
-            name: row.player_name,
-            score: row.score,
-            game: GAME_TYPE_LABELS[row.game_type] || row.game_type,
-          });
-        });
+      const liveScoresOk = !topScoresResult.error && (topScoresResult.data || []).length > 0;
+
+      if (liveScoresOk) {
+        allScores = (topScoresResult.data as GameScoreRow[]).map((row, index) => ({
+          rank: index + 1,
+          name: row.player_name,
+          score: row.score,
+          game: GAME_TYPE_LABELS[row.game_type] || row.game_type,
+        }));
       } else {
-        // Fallback to local storage scores
+        // Fallback: read from localStorage/artifact storage
         const storagePromises = STORAGE_PREFIXES.map(async (prefix) => {
           const result = await safeStorage.list(prefix, true);
           if (!result?.keys) return [];
-          
-          const items = await Promise.all(result.keys.map(async (key) => {
-            try {
-              const data = await safeStorage.get(key, true);
-              if (data?.value) {
-                const scoreData = JSON.parse(data.value);
-                const type = key.split(':')[0];
-                const gameType = type === 'score' ? 'Reaction' : type.charAt(0).toUpperCase() + type.slice(1);
-                return {
-                  rank: 0,
-                  name: scoreData.name,
-                  score: scoreData.time || scoreData.wpm || scoreData.level || scoreData.score,
-                  game: gameType,
-                };
-              }
-            } catch (e) { console.error('Error loading score:', e); }
-            return null;
-          }));
+          const items = await Promise.all(
+            result.keys.map(async (key) => {
+              try {
+                const data = await safeStorage.get(key, true);
+                if (data?.value) {
+                  const scoreData = JSON.parse(data.value);
+                  const type = key.split(':')[0];
+                  const gameType = type === 'score' ? 'Reaction' : type.charAt(0).toUpperCase() + type.slice(1);
+                  return {
+                    rank: 0,
+                    name: scoreData.name,
+                    score: scoreData.time || scoreData.wpm || scoreData.level || scoreData.score,
+                    game: gameType,
+                  } as LeaderboardEntry;
+                }
+              } catch (e) { console.error('Error loading score:', e); }
+              return null;
+            }),
+          );
           return items.filter(Boolean) as LeaderboardEntry[];
         });
         const results = await Promise.all(storagePromises);
-        results.forEach(batch => allScores.push(...batch));
+        results.forEach((batch) => allScores.push(...batch));
+
+        // ✅ Sort and rank after local fallback (DB path is already sorted)
+        allScores.sort((a, b) => {
+          const scoreA = typeof a.score === 'number' ? a.score : 0;
+          const scoreB = typeof b.score === 'number' ? b.score : 0;
+          return scoreB - scoreA;
+        });
+        allScores = allScores.slice(0, 10).map((entry, i) => ({ ...entry, rank: i + 1 }));
       }
 
-      // Sort and take top 10
-      allScores.sort((a, b) => {
-        const scoreA = typeof a.score === 'number' ? a.score : 0;
-        const scoreB = typeof b.score === 'number' ? b.score : 0;
-        return scoreB - scoreA;
-      });
+      setLeaderboard(allScores);
 
-      const topScores = allScores.slice(0, 10).map((entry, index) => ({ ...entry, rank: index + 1 }));
-      setLeaderboard(topScores);
-
-      // Player rank
-      const currentPlayer = localStorage.getItem('currentPlayer') || 'Guest';
-      const playerScores  = allScores.filter((s) => s.name === currentPlayer);
-      const bestScore     = playerScores.length > 0
-        ? Math.max(...playerScores.map((s) => typeof s.score === 'number' ? s.score : 0))
-        : 0;
-      const playerRankPos = allScores.findIndex((s) => s.name === currentPlayer) + 1;
+      // ✅ FIX 2: Player rank derived from the leaderboard we already have,
+      // plus the targeted single-row player query — no need to scan 200 rows.
+      const playerBestScore = playerScoresResult.data?.[0]?.score ?? 0;
+      const playerRankPos   = allScores.findIndex((s) => s.name === currentPlayer) + 1;
+      const totalPlayers    = new Set(allScores.map((s) => s.name)).size || 1;
 
       setPlayerRank({
         currentRank:  playerRankPos || allScores.length + 1,
-        totalPlayers: new Set(allScores.map((s) => s.name)).size || 1,
-        bestScore:    bestScore || 0,
+        totalPlayers,
+        bestScore:    playerBestScore,
       });
     } catch (error) {
       console.error('Error loading game data:', error);
     } finally {
       setLoading(false);
     }
-  }, []); // ✅ empty deps — no external deps, reads from supabase/localStorage directly
+  }, []);
 
   useEffect(() => {
     void loadGameData();
 
-    // ✅ Realtime subscription — stable because loadGameData is memoized
+    // ✅ Realtime subscription — still unfiltered (any score insert refreshes
+    // the leaderboard) but now each refresh only fetches 10 rows instead of 200.
     const channel = supabase
       .channel('game-scores-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_scores' }, () => {
@@ -199,13 +204,11 @@ const GamesPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [loadGameData]);
 
-  // ✅ Stable callback for navigation
   const handlePlayGame = useCallback((route: string) => navigate(route), [navigate]);
   const handleBack     = useCallback(() => safeNavigateBack(navigate, '/feed'), [navigate]);
 
-  // ✅ useMemo for rank display string
-  const rankDisplay = useMemo(() =>
-    `#${playerRank.currentRank} out of ${playerRank.totalPlayers} players`,
+  const rankDisplay = useMemo(
+    () => `#${playerRank.currentRank} out of ${playerRank.totalPlayers} players`,
     [playerRank.currentRank, playerRank.totalPlayers],
   );
 
@@ -220,13 +223,11 @@ const GamesPage = () => {
           Back
         </button>
 
-        {/* Header */}
         <div className="games-header">
           <h1>Games Arena</h1>
           <p>Master multiple challenges and climb the leaderboards</p>
         </div>
 
-        {/* Player Rank */}
         <div className="player-rank-section">
           <div className="rank-card">
             <div className="rank-badge">#{playerRank.currentRank}</div>
@@ -241,14 +242,12 @@ const GamesPage = () => {
           </div>
         </div>
 
-        {/* Games Grid — GameCardItem is memo'd, GAMES is constant = zero re-renders */}
         <div className="games-grid">
           {GAMES.map((game) => (
             <GameCardItem key={game.id} game={game} onPlay={handlePlayGame} />
           ))}
         </div>
 
-        {/* Leaderboard */}
         <div className="leaderboard-section">
           <h2>Global Leaderboard</h2>
           <div className="leaderboard-container">
