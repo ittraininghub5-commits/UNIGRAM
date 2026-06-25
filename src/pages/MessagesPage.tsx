@@ -6,13 +6,6 @@ import { Send, Search, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
 import { createNotification } from '@/src/services/notificationService';
-import {
-  createSynapseAcceptMessage,
-  createSynapseDeclineMessage,
-  isSynapseConnectAccepted,
-  isSynapseConnectDecline,
-  isSynapseConnectRequest,
-} from '@/src/lib/synapse';
 
 const THREAD_INDEX_LIMIT = 200;
 const CONVERSATION_LIMIT = 100;
@@ -64,12 +57,16 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
   const [message, setMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [handlingCollabDecision, setHandlingCollabDecision] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [conversationByThread, setConversationByThread] = useState<Record<string, UiMessage[]>>({});
   const [loadingConversation, setLoadingConversation] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isAtBottom = useRef(true);
   const profileIdRef = useRef<string | null>(null);
   profileIdRef.current = profile?.id ?? null;
+  const deletedThreadIds = useRef<Set<string>>(new Set());
 
   const preferredThreadId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -165,8 +162,11 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
         });
         return merged;
       });
-      setThreads(threads);
-      setSelectedThreadId((prev) => preferredThreadId || prev || threads[0]?.id || null);
+      setThreads(threads.filter((t) => !deletedThreadIds.current.has(t.id)));
+      setSelectedThreadId((prev) => {
+        if (prev && deletedThreadIds.current.has(prev)) return null;
+        return preferredThreadId || prev || threads.filter((t) => !deletedThreadIds.current.has(t.id))[0]?.id || null;
+      });
     } catch (err) {
       console.error('Error loading message threads:', err);
       toast.error('Failed to load messages.');
@@ -175,11 +175,11 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     }
   }, [profile?.id, preferredThreadId, buildThreadsFromMessages]);
 
-  const loadThreadConversation = useCallback(async (threadId: string) => {
+  const loadThreadConversation = useCallback(async (threadId: string, silent = false) => {
     if (!profile?.id) return;
 
     try {
-      setLoadingConversation(true);
+      if (!silent) setLoadingConversation(true);
       const { data, error } = await supabase
         .from('messages')
         .select('id, from_id, to_id, content, read, created_at')
@@ -197,7 +197,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       console.error('Error loading conversation:', err);
       toast.error('Failed to load conversation.');
     } finally {
-      setLoadingConversation(false);
+      if (!silent) setLoadingConversation(false);
     }
   }, [profile?.id]);
 
@@ -270,9 +270,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
   selectedThreadIdRef.current = selectedThreadId;
 
   const markThreadAsRead = useCallback(async (threadId: string) => {
-    if (!profile?.id) {
-      return;
-    }
+    if (!profile?.id) return;
 
     setThreads((prev) =>
       prev.map((thread) =>
@@ -297,9 +295,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
   const ensureThreadExists = useCallback(async (threadId: string) => {
     const exists = threads.some((thread) => thread.id === threadId);
-    if (exists) {
-      return;
-    }
+    if (exists) return;
 
     const { data, error } = await supabase
       .from('profiles')
@@ -307,9 +303,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       .eq('id', threadId)
       .maybeSingle();
 
-    if (error || !data) {
-      return;
-    }
+    if (error || !data) return;
 
     const color = THREAD_COLORS[Math.abs(hashString(threadId)) % THREAD_COLORS.length];
     setThreads((prev) => [
@@ -332,9 +326,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
   const filteredThreads = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) {
-      return threads;
-    }
+    if (!query) return threads;
     return threads.filter((thread) => thread.name.toLowerCase().includes(query));
   }, [threads, searchTerm]);
 
@@ -343,33 +335,19 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     return conversationByThread[selectedThreadId] || [];
   }, [selectedThreadId, conversationByThread]);
 
-  const pendingIncomingCollabRequest = useMemo(() => {
-    const hasIncomingRequest = selectedMessages.some(
-      (item) => !item.fromMe && isSynapseConnectRequest(item.text),
-    );
-    const hasDecision = selectedMessages.some(
-      (item) =>
-        (item.fromMe && (isSynapseConnectAccepted(item.text) || isSynapseConnectDecline(item.text))) ||
-        (!item.fromMe && (isSynapseConnectAccepted(item.text) || isSynapseConnectDecline(item.text))),
-    );
-    return hasIncomingRequest && !hasDecision;
-  }, [selectedMessages]);
-
   const lastMessageId = selectedMessages[selectedMessages.length - 1]?.id ?? null;
 
   const scrollToLatest = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
-    });
+    setTimeout(() => {
+      const container = messagesContainerRef.current;
+      if (!container) return;
+      container.scrollTo({ top: container.scrollHeight, behavior });
+    }, 50);
   }, []);
 
   useEffect(() => {
-    scrollToLatest('auto');
-  }, [selectedThreadId, scrollToLatest]);
-
-  useEffect(() => {
     if (!lastMessageId) return;
-    scrollToLatest('smooth');
+    if (isAtBottom.current) scrollToLatest('smooth');
   }, [lastMessageId, scrollToLatest]);
 
   useEffect(() => {
@@ -397,7 +375,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     const refreshInterval = window.setInterval(() => {
       void loadThreadIndex();
       if (selectedThreadId) {
-        void loadThreadConversation(selectedThreadId);
+        void loadThreadConversation(selectedThreadId, true);
       }
     }, 15000);
 
@@ -419,9 +397,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     }
 
     const presenceChannel = supabase.channel(`messages-presence-${profile.id}`, {
-      config: {
-        presence: { key: profile.id },
-      },
+      config: { presence: { key: profile.id } },
     });
 
     presenceChannel
@@ -433,50 +409,123 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           try {
-            await presenceChannel.track({
-              userId: profile.id,
-              onlineAt: new Date().toISOString(),
-            });
+            await presenceChannel.track({ userId: profile.id, onlineAt: new Date().toISOString() });
           } catch (err) {
             console.error('[MessagesPage] presence track error', err);
           }
         }
       });
 
-    return () => {
-      supabase.removeChannel(presenceChannel);
-    };
+    return () => { supabase.removeChannel(presenceChannel); };
   }, [profile?.id]);
 
   useEffect(() => {
-    if (!profile?.id || !selectedThreadId) {
-      return;
-    }
-
+    if (!profile?.id || !selectedThreadId) return;
     const selected = threads.find((thread) => thread.id === selectedThreadId);
-    if (!selected || selected.unread === 0) {
-      return;
-    }
-
+    if (!selected || selected.unread === 0) return;
     void markThreadAsRead(selectedThreadId);
   }, [profile?.id, selectedThreadId, threads, markThreadAsRead]);
 
   useEffect(() => {
-    if (!preferredThreadId) {
-      return;
-    }
-
+    if (!preferredThreadId) return;
     void ensureThreadExists(preferredThreadId);
     setSelectedThreadId(preferredThreadId);
   }, [preferredThreadId, ensureThreadExists]);
 
+  // Close menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleDeleteChat = useCallback(async () => {
+    if (!profile?.id || !selectedThreadId) return;
+    const threadId = selectedThreadId; // snapshot before any state changes
+    setMenuOpen(false);
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .or(
+          `and(from_id.eq.${profile.id},to_id.eq.${threadId}),and(from_id.eq.${threadId},to_id.eq.${profile.id})`
+        );
+
+      if (error) {
+        console.error('Delete error:', JSON.stringify(error));
+        throw error;
+      }
+
+      // Mark as deleted so refresh interval doesn't reload it
+      deletedThreadIds.current.add(threadId);
+
+      setConversationByThread((prev) => {
+        const next = { ...prev };
+        delete next[threadId];
+        return next;
+      });
+      setThreads((prev) => prev.filter((t) => t.id !== threadId));
+      setSelectedThreadId(null);
+      toast.success('Chat deleted.');
+    } catch (err) {
+      console.error('Failed to delete chat:', err);
+      toast.error('Failed to delete chat.');
+    }
+  }, [profile?.id, selectedThreadId]);
+
+  const handleBlockUser = useCallback(async () => {
+    if (!profile?.id || !selectedThreadId) return;
+    const threadId = selectedThreadId; // snapshot before any state changes
+    setMenuOpen(false);
+
+    try {
+      const { error: blockError } = await supabase
+        .from('blocked_users')
+        .insert({ blocker_id: profile.id, blocked_id: threadId });
+
+      if (blockError) {
+        console.error('Block error:', JSON.stringify(blockError));
+        throw blockError;
+      }
+
+      // Also remove the conversation messages
+      const { error: deleteError } = await supabase
+        .from('messages')
+        .delete()
+        .or(
+          `and(from_id.eq.${profile.id},to_id.eq.${threadId}),and(from_id.eq.${threadId},to_id.eq.${profile.id})`
+        );
+
+      if (deleteError) {
+        console.error('Delete after block error:', JSON.stringify(deleteError));
+        // Non-fatal — user is still blocked even if message cleanup fails
+      }
+
+      // Mark as deleted so refresh interval doesn't reload it
+      deletedThreadIds.current.add(threadId);
+
+      setConversationByThread((prev) => {
+        const next = { ...prev };
+        delete next[threadId];
+        return next;
+      });
+      setThreads((prev) => prev.filter((t) => t.id !== threadId));
+      setSelectedThreadId(null);
+      toast.success('User blocked.');
+    } catch (err) {
+      console.error('Failed to block user:', err);
+      toast.error('Failed to block user.');
+    }
+  }, [profile?.id, selectedThreadId]);
+
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !profile?.id || !selectedThreadId) return;
-    if (pendingIncomingCollabRequest) {
-      toast.info('Please accept or decline the collab request before sending another message.');
-      return;
-    }
 
     const content = message.trim();
     const threadId = selectedThreadId;
@@ -500,12 +549,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       prev
         .map((thread) =>
           thread.id === threadId
-            ? {
-                ...thread,
-                lastMessage: content,
-                time: 'now',
-                lastTimestamp: Date.now(),
-              }
+            ? { ...thread, lastMessage: content, time: 'now', lastTimestamp: Date.now() }
             : thread,
         )
         .sort((a, b) => b.lastTimestamp - a.lastTimestamp),
@@ -544,50 +588,12 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       toast.error('Failed to send message.');
       setMessage(content);
     }
-  }, [message, pendingIncomingCollabRequest, profile, selectedThreadId]);
-
-  const handleCollabDecision = useCallback(
-    async (decision: 'accept' | 'decline') => {
-      if (!profile?.id || !selectedThreadId || !selectedThread) return;
-
-      setHandlingCollabDecision(true);
-      try {
-        const content =
-          decision === 'accept'
-            ? createSynapseAcceptMessage(profile.full_name)
-            : createSynapseDeclineMessage(profile.full_name);
-
-        const { error } = await supabase
-          .from('messages')
-          .insert({
-            from_id: profile.id,
-            to_id: selectedThreadId,
-            content,
-          });
-
-        if (error) throw error;
-
-        if (decision === 'accept') {
-          toast.success('Collab request accepted — the chat is now open.');
-        } else {
-          toast.success('Your response has been sent.');
-        }
-
-        await loadThreadConversation(selectedThreadId);
-      } catch (err) {
-        console.error('Error handling collab response:', err);
-        toast.error('Failed to send your response.');
-      } finally {
-        setHandlingCollabDecision(false);
-      }
-    },
-    [loadThreadConversation, profile, selectedThread, selectedThreadId],
-  );
+  }, [message, profile, selectedThreadId]);
 
   return (
-        <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="bg-bg-card border border-white/5 rounded-[32px] overflow-hidden grid grid-cols-1 lg:grid-cols-[320px_1fr] h-[calc(100vh-12rem)] min-h-[480px] shadow-2xl">
-        
+
         {/* Thread List */}
         <aside className="border-r border-white/5 flex flex-col">
           <div className="p-6 border-b border-white/5 space-y-4">
@@ -602,8 +608,8 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
             </div>
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted group-focus-within:text-accent-teal transition-colors" />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Search messages..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -617,62 +623,55 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
               <div className="p-6 text-xs text-text-muted">Loading chats...</div>
             ) : filteredThreads.length === 0 ? (
               <div className="p-6 text-xs text-text-muted">No conversations found.</div>
-            ) : filteredThreads.map((thread) => (
-              (() => {
-                const presence = getThreadPresence(thread, onlineUserIds);
-                return (
-              <button
-                key={thread.id}
-                onClick={() => setSelectedThreadId(thread.id)}
-                className={cn(
-                  "w-full p-4 flex gap-4 items-center transition-all hover:bg-bg-elevated/50",
-                  selectedThread?.id === thread.id ? "bg-bg-elevated" : ""
-                )}
-              >
-                <div className="relative shrink-0">
-                  <div className={cn("w-12 h-12 rounded-full overflow-hidden flex items-center justify-center font-bold text-sm", thread.color)}>
-                    {thread.avatarUrl ? (
-                      <img
-                        src={thread.avatarUrl}
-                        alt={thread.name}
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <span style={{ display: thread.avatarUrl ? 'none' : 'flex' }}>
-                      {getInitials(thread.name)}
-                    </span>
-                  </div>
-                  {presence !== 'offline' && (
-                    <div
-                      className={cn(
-                        "absolute bottom-0 right-0 w-3 h-3 border-2 border-bg-card rounded-full",
-                        presence === 'online' ? 'bg-accent-teal' : 'bg-accent-amber'
-                      )}
-                    />
+            ) : filteredThreads.map((thread) => {
+              const presence = getThreadPresence(thread, onlineUserIds);
+              return (
+                <button
+                  key={thread.id}
+                  onClick={() => setSelectedThreadId(thread.id)}
+                  className={cn(
+                    'w-full p-4 flex gap-4 items-center transition-all hover:bg-bg-elevated/50',
+                    selectedThread?.id === thread.id ? 'bg-bg-elevated' : '',
                   )}
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-bold truncate">{thread.name}</p>
-                    <span className="text-[10px] text-text-muted font-mono">{thread.time}</span>
+                >
+                  <div className="relative shrink-0">
+                    <div className={cn('w-12 h-12 rounded-full overflow-hidden flex items-center justify-center font-bold text-sm', thread.color)}>
+                      {thread.avatarUrl ? (
+                        <img
+                          src={thread.avatarUrl}
+                          alt={thread.name}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <span style={{ display: thread.avatarUrl ? 'none' : 'flex' }}>
+                        {getInitials(thread.name)}
+                      </span>
+                    </div>
+                    {presence !== 'offline' && (
+                      <div className={cn('absolute bottom-0 right-0 w-3 h-3 border-2 border-bg-card rounded-full', presence === 'online' ? 'bg-accent-teal' : 'bg-accent-amber')} />
+                    )}
                   </div>
-                  <p className="text-xs text-text-secondary truncate leading-relaxed">{thread.lastMessage}</p>
-                </div>
-                {thread.unread > 0 && (
-                  <div className="w-5 h-5 rounded-full bg-accent-teal text-bg-base text-[10px] font-bold flex items-center justify-center">
-                    {thread.unread}
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-bold truncate">{thread.name}</p>
+                      <span className="text-[10px] text-text-muted font-mono">{thread.time}</span>
+                    </div>
+                    <p className="text-xs text-text-secondary truncate leading-relaxed">{thread.lastMessage}</p>
                   </div>
-                )}
-              </button>
-                );
-              })()
-            ))}
+                  {thread.unread > 0 && (
+                    <div className="w-5 h-5 rounded-full bg-accent-teal text-bg-base text-[10px] font-bold flex items-center justify-center">
+                      {thread.unread}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </aside>
 
@@ -683,84 +682,9 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
             {(() => {
               const selectedPresence = selectedThread ? getThreadPresence(selectedThread, onlineUserIds) : 'offline';
               return (
-            <div className="flex items-center gap-4">
-              <div className={cn("relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs", selectedThread?.color || THREAD_COLORS[0])}>
-                {selectedThread?.avatarUrl ? (
-                  <img
-                    src={selectedThread.avatarUrl}
-                    alt={selectedThread.name}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
-                      if (fallback) fallback.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
-                <span style={{ display: selectedThread?.avatarUrl ? 'none' : 'flex' }}>
-                  {getInitials(selectedThread?.name || 'User')}
-                </span>
-                {selectedThread && selectedPresence !== 'offline' && (
-                  <span
-                    className={cn(
-                      "absolute bottom-0 right-0 w-2.5 h-2.5 border border-bg-card rounded-full",
-                      selectedPresence === 'online' ? 'bg-accent-teal' : 'bg-accent-amber'
-                    )}
-                  />
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-bold leading-tight">{selectedThread?.name || 'No conversation selected'}</p>
-                <p
-                  className={cn(
-                    "text-[10px] font-medium",
-                    selectedThread
-                      ? selectedPresence === 'online'
-                        ? 'text-accent-teal'
-                        : selectedPresence === 'recent'
-                          ? 'text-accent-amber'
-                          : 'text-text-muted'
-                      : 'text-text-muted'
-                  )}
-                >
-                  {selectedThread
-                    ? selectedPresence === 'online'
-                      ? 'Online'
-                      : selectedPresence === 'recent'
-                        ? 'Recently Active'
-                        : 'Offline'
-                    : 'Messages'}
-                </p>
-              </div>
-            </div>
-              );
-            })()}
-            <div className="flex items-center gap-2">
-              <HeaderAction
-                icon={<MoreVertical className="w-4 h-4" />}
-                onClick={() => {
-                  if (selectedThread?.id) {
-                    navigate(`/profile/${selectedThread.id}`);
-                  }
-                }}
-              />
-            </div>
-          </header>
-
-          {/* Messages */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
-            {!selectedThread ? (
-              <div className="text-sm text-text-muted">Select a conversation to start chatting.</div>
-            ) : loadingConversation ? (
-              <div className="text-sm text-text-muted">Loading conversation...</div>
-            ) : selectedMessages.length === 0 ? (
-              <div className="text-sm text-text-muted">No messages yet. Say hello.</div>
-            ) : selectedMessages.map((msg) => (
-              <div key={msg.id} className={cn("flex gap-3 max-w-[80%]", msg.fromMe ? "ml-auto flex-row-reverse" : "")}>
-                {!msg.fromMe && (
-                  <div className={cn("w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-bold text-[10px] shrink-0 mt-auto", selectedThread.color)}>
-                    {selectedThread.avatarUrl ? (
+                <div className="flex items-center gap-4">
+                  <div className={cn('relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs', selectedThread?.color || THREAD_COLORS[0])}>
+                    {selectedThread?.avatarUrl ? (
                       <img
                         src={selectedThread.avatarUrl}
                         alt={selectedThread.name}
@@ -773,67 +697,129 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
                         }}
                       />
                     ) : null}
-                    <span style={{ display: selectedThread.avatarUrl ? 'none' : 'flex' }}>
-                      {getInitials(selectedThread.name)}
+                    <span style={{ display: selectedThread?.avatarUrl ? 'none' : 'flex' }}>
+                      {getInitials(selectedThread?.name || 'User')}
                     </span>
+                    {selectedThread && selectedPresence !== 'offline' && (
+                      <span className={cn('absolute bottom-0 right-0 w-2.5 h-2.5 border border-bg-card rounded-full', selectedPresence === 'online' ? 'bg-accent-teal' : 'bg-accent-amber')} />
+                    )}
                   </div>
-                )}
-                <div className="space-y-1">
-                  <div className={cn(
-                    "px-4 py-2.5 rounded-2xl text-sm leading-relaxed",
-                    msg.fromMe 
-                      ? "bg-accent-teal/10 border border-accent-teal/20 text-text-primary rounded-br-none" 
-                      : "bg-bg-elevated text-text-secondary rounded-bl-none"
-                  )}>
-                    {msg.text}
+                  <div>
+                    <p className="text-sm font-bold leading-tight">{selectedThread?.name || 'No conversation selected'}</p>
+                    <p className={cn('text-[10px] font-medium', selectedThread ? selectedPresence === 'online' ? 'text-accent-teal' : selectedPresence === 'recent' ? 'text-accent-amber' : 'text-text-muted' : 'text-text-muted')}>
+                      {selectedThread ? selectedPresence === 'online' ? 'Online' : selectedPresence === 'recent' ? 'Recently Active' : 'Offline' : 'Messages'}
+                    </p>
                   </div>
-                  <p className={cn("text-[9px] font-mono text-text-muted", msg.fromMe ? "text-right" : "")}>{msg.time}</p>
                 </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} aria-hidden className="h-px shrink-0" />
+              );
+            })()}
+
+            {/* Three-dot menu */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="p-2.5 rounded-xl text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              {menuOpen && selectedThread && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-bg-card border border-white/10 rounded-2xl shadow-xl overflow-hidden z-50">
+                  <button
+                    onClick={() => { setMenuOpen(false); navigate(`/profile/${selectedThread.id}`); }}
+                    className="w-full px-4 py-3 text-sm text-left text-text-primary hover:bg-bg-elevated transition-all flex items-center gap-3"
+                  >
+                    <svg className="w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                    View Profile
+                  </button>
+                  <div className="h-px bg-white/5" />
+                  <button
+                    onClick={handleDeleteChat}
+                    className="w-full px-4 py-3 text-sm text-left text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-3"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Delete Chat
+                  </button>
+                  <div className="h-px bg-white/5" />
+                  <button
+                    onClick={handleBlockUser}
+                    className="w-full px-4 py-3 text-sm text-left text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-3"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    Block User
+                  </button>
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Messages */}
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col-reverse"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              isAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+            }}
+          >
+            <div className="flex flex-col gap-6">
+              {!selectedThread ? (
+                <div className="text-sm text-text-muted">Select a conversation to start chatting.</div>
+              ) : loadingConversation ? (
+                <div className="text-sm text-text-muted">Loading conversation...</div>
+              ) : selectedMessages.length === 0 ? (
+                <div className="text-sm text-text-muted">No messages yet. Say hello.</div>
+              ) : selectedMessages.map((msg) => (
+                <div key={msg.id} className={cn('flex gap-3 max-w-[80%]', msg.fromMe ? 'ml-auto flex-row-reverse' : '')}>
+                  {!msg.fromMe && (
+                    <div className={cn('w-8 h-8 rounded-full overflow-hidden flex items-center justify-center font-bold text-[10px] shrink-0 mt-auto', selectedThread.color)}>
+                      {selectedThread.avatarUrl ? (
+                        <img
+                          src={selectedThread.avatarUrl}
+                          alt={selectedThread.name}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <span style={{ display: selectedThread.avatarUrl ? 'none' : 'flex' }}>
+                        {getInitials(selectedThread.name)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <div className={cn(
+                      'px-4 py-2.5 rounded-2xl text-sm leading-relaxed',
+                      msg.fromMe
+                        ? 'bg-accent-teal/10 border border-accent-teal/20 text-text-primary rounded-br-none'
+                        : 'bg-bg-elevated text-text-secondary rounded-bl-none',
+                    )}>
+                      {msg.text}
+                    </div>
+                    <p className={cn('text-[9px] font-mono text-text-muted', msg.fromMe ? 'text-right' : '')}>{msg.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Input */}
           <footer className="p-6 bg-bg-card/90 border-t border-white/5">
-            {pendingIncomingCollabRequest && (
-              <div className="mb-4 rounded-2xl border border-accent-teal/25 bg-accent-teal/10 p-4 shadow-sm">
-                <p className="text-sm font-semibold text-text-primary">Collab request</p>
-                <p className="mt-1 text-xs leading-5 text-text-secondary">
-                  This person wants to connect with you. Accept to continue the conversation, or decline politely.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleCollabDecision('accept')}
-                    disabled={handlingCollabDecision}
-                    className="rounded-xl bg-accent-teal px-4 py-2 text-sm font-semibold text-bg-base transition-all hover:bg-[#00f5b4] disabled:opacity-50"
-                  >
-                    {handlingCollabDecision ? 'Sending...' : 'Accept'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleCollabDecision('decline')}
-                    disabled={handlingCollabDecision}
-                    className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-text-primary transition-all hover:bg-white/5 disabled:opacity-50"
-                  >
-                    {handlingCollabDecision ? 'Sending...' : 'Decline'}
-                  </button>
-                </div>
-              </div>
-            )}
             <form onSubmit={handleSendMessage} className="flex gap-3">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder={pendingIncomingCollabRequest ? 'Accept or decline the request first' : 'Type a message...'}
-                disabled={!selectedThread || pendingIncomingCollabRequest}
+                placeholder="Type a message..."
+                disabled={!selectedThread}
                 className="flex-1 bg-bg-elevated border border-white/5 rounded-2xl px-6 py-3 text-sm outline-none focus:border-accent-teal transition-all"
               />
-              <button 
+              <button
                 type="submit"
-                disabled={!selectedThread || !message.trim() || pendingIncomingCollabRequest}
+                disabled={!selectedThread || !message.trim()}
                 className="bg-accent-teal hover:brightness-110 text-bg-base p-3 rounded-2xl transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Send className="w-5 h-5" />
@@ -844,14 +830,6 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
       </div>
     </div>
-  );
-}
-
-function HeaderAction({ icon, onClick }: { icon: React.ReactNode; onClick?: () => void }) {
-  return (
-    <button onClick={onClick} className="p-2.5 rounded-xl text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all">
-      {icon}
-    </button>
   );
 }
 
@@ -892,18 +870,10 @@ function formatMessageTime(timestamp: string): string {
 }
 
 function getThreadPresence(thread: Thread, onlineUserIds: Set<string>): 'online' | 'recent' | 'offline' {
-  // Prefer live presence; fallback to recent message activity.
-  if (onlineUserIds.has(thread.id)) {
-    return 'online';
-  }
-
+  if (onlineUserIds.has(thread.id)) return 'online';
   const diffMs = Date.now() - thread.lastTimestamp;
-  if (diffMs < 2 * 60 * 1000) {
-    return 'recent';
-  }
-  if (diffMs < 15 * 60 * 1000) {
-    return 'recent';
-  }
+  if (diffMs < 2 * 60 * 1000) return 'recent';
+  if (diffMs < 15 * 60 * 1000) return 'recent';
   return 'offline';
 }
 
@@ -915,4 +885,3 @@ function hashString(value: string): number {
   }
   return hash;
 }
-
