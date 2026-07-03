@@ -5,7 +5,7 @@ import { Profile, Course, CertificateRequest } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { cn, getInitials } from '@/src/lib/utils';
 import { isMentorRole } from '@/src/lib/roles';
-import { BookOpen, Trophy, Star, MoreHorizontal, Clock, Sparkles, FileText, Upload } from 'lucide-react';
+import { BookOpen, Trophy, Star, MoreHorizontal, Clock, Sparkles, FileText, Upload, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateQuizFromContent, generateTagsFromContent, generateCourseMetadataFromTitle } from '@/src/services/aiService';
 
