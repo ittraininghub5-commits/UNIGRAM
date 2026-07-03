@@ -5,7 +5,7 @@ import { Profile, Course, CertificateRequest } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
 import { cn, getInitials } from '@/src/lib/utils';
 import { isMentorRole } from '@/src/lib/roles';
-import { Plus, Video, BookOpen, Trophy, Star, MoreHorizontal, Clock, Sparkles, FileText, Upload } from 'lucide-react';
+import { BookOpen, Trophy, Star, MoreHorizontal, Clock, Sparkles, FileText, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateQuizFromContent, generateTagsFromContent, generateCourseMetadataFromTitle } from '@/src/services/aiService';
 
@@ -563,17 +563,6 @@ export default function MentorDashboard({ profile }: MentorDashboardProps) {
   const visibleEnrollments = showAllStudents ? enrollments : enrollments.slice(0, 5);
   const visibleCertificates = showAllCertificates ? certificates : certificates.slice(0, 5);
 
-  const handleUploadVideo = () => {
-    const targetCourseId = selectedCourseId || courses[0]?.id;
-    if (!targetCourseId) {
-      toast.error('Create a course first before uploading videos.');
-      return;
-    }
-
-    navigate(`/course/${targetCourseId}?upload=1`);
-    toast.success('Opened upload panel for the selected course.');
-  };
-
   const getCourseContentStoragePath = (url: string): string | null => {
     const marker = '/course-content/';
     const idx = url.indexOf(marker);
@@ -646,61 +635,13 @@ export default function MentorDashboard({ profile }: MentorDashboardProps) {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={handleUploadVideo}
-            className="px-5 py-2.5 rounded-xl border border-white/10 text-sm font-medium hover:bg-white/5 transition-all flex items-center gap-2"
-          >
-            <Video className="w-4 h-4" /> Upload Video
-          </button>
-          <button
-            onClick={() => setShowCreateCourse(true)}
+            onClick={() => navigate('/new-course')}
             className="bg-accent-teal hover:brightness-110 text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold font-display transition-all flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" /> New Course
+            <BookOpen className="w-4 h-4" /> New Course
           </button>
         </div>
       </div>
-
-      {showCreateCourse && (
-        <section className="bg-bg-card border border-white/5 rounded-3xl p-6 space-y-4">
-          <h2 className="font-display font-bold text-lg">Create New Course</h2>
-          <input
-            value={newCourseTitle}
-            onChange={(e) => setNewCourseTitle(e.target.value)}
-            placeholder="Course title"
-            className="w-full bg-bg-elevated border border-white/5 rounded-xl py-3 px-4 text-sm outline-none focus:border-accent-teal"
-          />
-          {autofillingCourseMeta && (
-            <p className="text-[11px] text-text-secondary">AI is drafting description and tags from your title...</p>
-          )}
-          <textarea
-            value={newCourseDescription}
-            onChange={(e) => setNewCourseDescription(e.target.value)}
-            placeholder="Course description"
-            className="w-full bg-bg-elevated border border-white/5 rounded-xl py-3 px-4 text-sm outline-none focus:border-accent-teal min-h-[100px]"
-          />
-          <input
-            value={newCourseTags}
-            onChange={(e) => setNewCourseTags(e.target.value)}
-            placeholder="Tags (comma separated)"
-            className="w-full bg-bg-elevated border border-white/5 rounded-xl py-3 px-4 text-sm outline-none focus:border-accent-teal"
-          />
-          <div className="flex gap-3">
-            <button
-              onClick={handleCreateCourse}
-              disabled={creatingCourse || generatingCourseMeta || autofillingCourseMeta}
-              className="bg-accent-teal hover:brightness-110 text-bg-base px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-            >
-              {autofillingCourseMeta || generatingCourseMeta ? 'AI drafting details...' : creatingCourse ? 'Creating...' : 'Create Course'}
-            </button>
-            <button
-              onClick={() => setShowCreateCourse(false)}
-              className="px-5 py-2.5 rounded-xl border border-white/10 text-sm font-medium hover:bg-white/5 transition-all"
-            >
-              Cancel
-            </button>
-          </div>
-        </section>
-      )}
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -734,7 +675,7 @@ export default function MentorDashboard({ profile }: MentorDashboardProps) {
         />
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_360px] gap-8 items-start">
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_460px] gap-8 lg:gap-10 items-start">
         {/* Main Content */}
         <div className="space-y-8">
           {/* AI Content Processor */}
@@ -1145,9 +1086,9 @@ export default function MentorDashboard({ profile }: MentorDashboardProps) {
         </div>
 
         {/* Right Sidebar */}
-        <aside className="space-y-6">
+        <aside className="space-y-6 lg:sticky lg:top-24 lg:max-w-[460px] lg:ml-auto w-full">
           {/* Realtime Activity Feed */}
-          <div className="bg-bg-card border border-white/5 rounded-3xl p-6 space-y-6">
+          <div className="bg-bg-card border border-white/5 rounded-3xl p-7 lg:p-8 space-y-6 w-full">
             <div className="flex items-center justify-between">
               <h3 className="text-[10px] font-mono text-text-muted uppercase tracking-[0.2em]">Activity</h3>
               <span className="text-[9px] font-mono text-text-muted">Realtime</span>
@@ -1169,7 +1110,7 @@ export default function MentorDashboard({ profile }: MentorDashboardProps) {
           </div>
 
           {/* Certificate Approval Summary */}
-          <div className="bg-accent-amber/5 border border-accent-amber/20 rounded-3xl p-6 space-y-4">
+          <div className="bg-accent-amber/5 border border-accent-amber/20 rounded-3xl p-7 lg:p-8 space-y-5 w-full">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-accent-amber/10 flex items-center justify-center">
                 <Trophy className="w-5 h-5 text-accent-amber" />
