@@ -324,10 +324,10 @@ function Navbar({ user, profile }: NavbarProps) {
     
     // Add mentor-only links
     if (isMentor) {
-      links.splice(3, 0, { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard });
-      links.push({ to: '/issued-certificates', label: 'Certificates', icon: FileCheck });
-      links.push({ to: '/In-Progress',    label: 'In-Progress', icon: Bell });
-      links.push({ to: '/new-course',          label: 'New Course', icon: BookOpen });
+      links.push({ to: '/dashboard',           label: 'Dashboard',    icon: LayoutDashboard });
+      links.push({ to: '/issued-certificates', label: 'Certificates', icon: FileCheck       });
+      links.push({ to: '/In-Progress',         label: 'In-Progress',  icon: Bell            });
+      links.push({ to: '/new-course',          label: 'New Course',   icon: BookOpen        });
     }
     
     links.push({ to: '/notifications', label: 'Notifications', icon: Bell           });
