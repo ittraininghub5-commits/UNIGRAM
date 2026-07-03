@@ -598,24 +598,6 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
         [threadId]: { blockedByMe: true, blockedByThem: false },
       }));
 
-<<<<<<< HEAD
-      if (deleteError) {
-        console.error('Delete after block error:', JSON.stringify(deleteError));
-        // Non-fatal — user is still blocked even if message cleanup fails
-      }
-
-      // Persist deleted thread ID so page refreshes don't reload it
-      persistDeletedThreadId(threadId);
-
-      setConversationByThread((prev) => {
-        const next = { ...prev };
-        delete next[threadId];
-        return next;
-      });
-      setThreads((prev) => prev.filter((t) => t.id !== threadId));
-      setSelectedThreadId(null);
-=======
->>>>>>> a7fc9385c800fd70c6c2e9625790da2dd6f628dc
       toast.success('User blocked.');
     } catch (err) {
       console.error('Failed to block user:', err);
