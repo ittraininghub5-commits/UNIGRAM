@@ -214,7 +214,16 @@ CREATE TABLE IF NOT EXISTS comments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 16. Game Scores Table
+-- 16. Blocked Users Table
+CREATE TABLE IF NOT EXISTS blocked_users (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  blocker_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  blocked_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(blocker_id, blocked_id)
+);
+
+-- 17. Game Scores Table
 CREATE TABLE IF NOT EXISTS game_scores (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   player_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
@@ -227,6 +236,8 @@ CREATE TABLE IF NOT EXISTS game_scores (
 
 CREATE INDEX IF NOT EXISTS idx_game_scores_type_score ON game_scores (game_type, score DESC, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_game_scores_created_at ON game_scores (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_blocked_users_blocker_id ON blocked_users(blocker_id);
+CREATE INDEX IF NOT EXISTS idx_blocked_users_blocked_id ON blocked_users(blocked_id);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -245,6 +256,7 @@ ALTER TABLE certificate_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE blocked_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE game_scores ENABLE ROW LEVEL SECURITY;
 
 -- Policies
@@ -333,12 +345,26 @@ CREATE POLICY "Students can create submissions" ON submissions FOR INSERT WITH C
 
 -- Messages
 CREATE POLICY "Messages viewable by sender or receiver" ON messages FOR SELECT USING (auth.uid() = from_id OR auth.uid() = to_id);
-CREATE POLICY "Users can send messages" ON messages FOR INSERT WITH CHECK (auth.uid() = from_id);
+CREATE POLICY "Users can send messages" ON messages FOR INSERT WITH CHECK (
+  auth.uid() = from_id AND
+  NOT EXISTS (
+    SELECT 1 FROM blocked_users WHERE blocker_id = from_id AND blocked_id = to_id
+  ) AND
+  NOT EXISTS (
+    SELECT 1 FROM blocked_users WHERE blocker_id = to_id AND blocked_id = from_id
+  )
+);
 CREATE POLICY "Recipients can mark messages as read" ON messages FOR UPDATE USING (auth.uid() = to_id) WITH CHECK (auth.uid() = to_id);
+CREATE POLICY "Users can delete own messages" ON messages FOR DELETE USING (auth.uid() = from_id OR auth.uid() = to_id);
 
 -- Comments
 CREATE POLICY "Comments viewable by everyone" ON comments FOR SELECT USING (true);
 CREATE POLICY "Users can manage own comments" ON comments FOR ALL USING (auth.uid() = user_id);
+
+-- Blocked Users
+CREATE POLICY "Users can view their own blocked list" ON blocked_users FOR SELECT USING (auth.uid() = blocker_id OR auth.uid() = blocked_id);
+CREATE POLICY "Users can block other users" ON blocked_users FOR INSERT WITH CHECK (auth.uid() = blocker_id);
+CREATE POLICY "Users can unblock other users" ON blocked_users FOR DELETE USING (auth.uid() = blocker_id);
 
 -- Game Scores
 CREATE POLICY "Game scores viewable by everyone" ON game_scores FOR SELECT USING (true);
