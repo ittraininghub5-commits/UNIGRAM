@@ -59,6 +59,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [conversationByThread, setConversationByThread] = useState<Record<string, UiMessage[]>>({});
+  const [blockedThreads, setBlockedThreads] = useState<Record<string, { blockedByMe: boolean; blockedByThem: boolean }>>({});
   const [loadingConversation, setLoadingConversation] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -131,6 +132,35 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     };
   }, []);
 
+  const loadBlockedStates = useCallback(async () => {
+    if (!profile?.id) return {} as Record<string, { blockedByMe: boolean; blockedByThem: boolean }>;
+
+    try {
+      const { data, error } = await supabase
+        .from('blocked_users')
+        .select('blocker_id, blocked_id')
+        .or(`blocker_id.eq.${profile.id},blocked_id.eq.${profile.id}`);
+
+      if (error) throw error;
+
+      const states: Record<string, { blockedByMe: boolean; blockedByThem: boolean }> = {};
+      (data || []).forEach((row: { blocker_id: string; blocked_id: string }) => {
+        if (row.blocker_id === profile.id) {
+          states[row.blocked_id] = { blockedByMe: true, blockedByThem: false };
+        }
+        if (row.blocked_id === profile.id) {
+          states[row.blocker_id] = { blockedByMe: false, blockedByThem: true };
+        }
+      });
+
+      setBlockedThreads(states);
+      return states;
+    } catch (err) {
+      console.error('Error loading blocked states:', err);
+      return {} as Record<string, { blockedByMe: boolean; blockedByThem: boolean }>;
+    }
+  }, [profile?.id]);
+
   const loadThreadIndex = useCallback(async () => {
     if (!profile?.id) return;
 
@@ -157,7 +187,40 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
           .select('id, full_name, avatar_url')
           .in('id', participantIds);
 
-        (participantProfiles || []).forEach((p: Profile) => profilesMap.set(p.id, p));
+        (participantProfiles || []).forEach((p: { id: string; full_name: string; avatar_url: string | null }) => profilesMap.set(p.id, {
+          id: p.id,
+          full_name: p.full_name,
+          avatar_url: p.avatar_url,
+          email: '',
+          username: '',
+          role: 'student',
+          bio: '',
+          institution: '',
+          phone: '',
+          is_verified: false,
+          followers_count: 0,
+          following_count: 0,
+          created_at: new Date().toISOString(),
+        } as Profile));
+      }
+
+      const blockedStates: Record<string, { blockedByMe: boolean; blockedByThem: boolean }> = {};
+      if (participantIds.length > 0) {
+        const { data: blockedData, error: blockedError } = await supabase
+          .from('blocked_users')
+          .select('blocker_id, blocked_id')
+          .or(`blocker_id.eq.${profile.id},blocked_id.eq.${profile.id}`);
+
+        if (!blockedError && blockedData) {
+          (blockedData as Array<{ blocker_id: string; blocked_id: string }>).forEach((row) => {
+            if (row.blocker_id === profile.id) {
+              blockedStates[row.blocked_id] = { blockedByMe: true, blockedByThem: false };
+            }
+            if (row.blocked_id === profile.id) {
+              blockedStates[row.blocker_id] = { blockedByMe: false, blockedByThem: true };
+            }
+          });
+        }
       }
 
       const { conversations, threads } = buildThreadsFromMessages(allMessages, profilesMap, profile.id);
@@ -171,6 +234,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
         });
         return merged;
       });
+      setBlockedThreads(blockedStates);
       setThreads(threads.filter((t) => !deletedThreadIds.current.has(t.id)));
       setSelectedThreadId((prev) => {
         if (prev && deletedThreadIds.current.has(prev)) return null;
@@ -202,6 +266,23 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
       const messages = ((data || []) as DbMessage[]).map((msg) => dbToUi(msg, profile.id));
       setConversationByThread((prev) => ({ ...prev, [threadId]: messages }));
+      const { data: blockedData, error: blockedError } = await supabase
+        .from('blocked_users')
+        .select('blocker_id, blocked_id')
+        .or(`blocker_id.eq.${profile.id},blocked_id.eq.${profile.id}`);
+
+      if (!blockedError && blockedData) {
+        const blockedStates: Record<string, { blockedByMe: boolean; blockedByThem: boolean }> = {};
+        (blockedData as Array<{ blocker_id: string; blocked_id: string }>).forEach((row) => {
+          if (row.blocker_id === profile.id) {
+            blockedStates[row.blocked_id] = { blockedByMe: true, blockedByThem: false };
+          }
+          if (row.blocked_id === profile.id) {
+            blockedStates[row.blocker_id] = { blockedByMe: false, blockedByThem: true };
+          }
+        });
+        setBlockedThreads(blockedStates);
+      }
     } catch (err) {
       console.error('Error loading conversation:', err);
       toast.error('Failed to load conversation.');
@@ -347,6 +428,11 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     return conversationByThread[selectedThreadId] || [];
   }, [selectedThreadId, conversationByThread]);
 
+  const selectedThreadBlockState = useMemo(() => {
+    if (!selectedThreadId) return null;
+    return blockedThreads[selectedThreadId] || null;
+  }, [selectedThreadId, blockedThreads]);
+
   const lastMessageId = selectedMessages[selectedMessages.length - 1]?.id ?? null;
 
   const scrollToLatest = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -359,7 +445,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
   useEffect(() => {
     if (!lastMessageId) return;
-    if (isAtBottom.current) scrollToLatest('smooth');
+    scrollToLatest('smooth');
   }, [lastMessageId, scrollToLatest]);
 
   useEffect(() => {
@@ -402,11 +488,13 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     void loadThreadConversation(selectedThreadId);
   }, [selectedThreadId, loadThreadConversation]);
 
+  // Auto-scroll to bottom when conversation loads
   useEffect(() => {
-    if (!profile?.id) {
-      setOnlineUserIds(new Set());
-      return;
-    }
+    if (loadingConversation || selectedMessages.length === 0) return;
+    scrollToLatest('auto');
+  }, [selectedThreadId, loadingConversation, selectedMessages.length, scrollToLatest]);
+
+  useEffect(() => {
 
     const presenceChannel = supabase.channel(`messages-presence-${profile.id}`, {
       config: { presence: { key: profile.id } },
@@ -505,14 +593,12 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
         throw blockError;
       }
 
-      // Also remove the conversation messages
-      const { error: deleteError } = await supabase
-        .from('messages')
-        .delete()
-        .or(
-          `and(from_id.eq.${profile.id},to_id.eq.${threadId}),and(from_id.eq.${threadId},to_id.eq.${profile.id})`
-        );
+      setBlockedThreads((prev) => ({
+        ...prev,
+        [threadId]: { blockedByMe: true, blockedByThem: false },
+      }));
 
+<<<<<<< HEAD
       if (deleteError) {
         console.error('Delete after block error:', JSON.stringify(deleteError));
         // Non-fatal — user is still blocked even if message cleanup fails
@@ -528,6 +614,8 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       });
       setThreads((prev) => prev.filter((t) => t.id !== threadId));
       setSelectedThreadId(null);
+=======
+>>>>>>> a7fc9385c800fd70c6c2e9625790da2dd6f628dc
       toast.success('User blocked.');
     } catch (err) {
       console.error('Failed to block user:', err);
@@ -539,8 +627,44 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
     e.preventDefault();
     if (!message.trim() || !profile?.id || !selectedThreadId) return;
 
-    const content = message.trim();
+    const blockState = blockedThreads[selectedThreadId];
+    if (blockState?.blockedByMe) {
+      toast.error('You have blocked this user. Unblock to send messages.');
+      return;
+    }
+    if (blockState?.blockedByThem) {
+      toast.error('You have been blocked by this user. You cannot send messages.');
+      return;
+    }
+
     const threadId = selectedThreadId;
+    const { data: blockData, error: blockDataError } = await supabase
+      .from('blocked_users')
+      .select('blocker_id, blocked_id')
+      .or(
+        `and(blocker_id.eq.${profile.id},blocked_id.eq.${threadId}),and(blocker_id.eq.${threadId},blocked_id.eq.${profile.id})`,
+      );
+
+    if (!blockDataError && blockData) {
+      const blockedByMe = blockData.some((row: { blocker_id: string; blocked_id: string }) => row.blocker_id === profile.id && row.blocked_id === threadId);
+      const blockedByThem = blockData.some((row: { blocker_id: string; blocked_id: string }) => row.blocker_id === threadId && row.blocked_id === profile.id);
+
+      if (blockedByMe || blockedByThem) {
+        setBlockedThreads((prev) => ({
+          ...prev,
+          [threadId]: { blockedByMe, blockedByThem },
+        }));
+
+        if (blockedByMe) {
+          toast.error('You have blocked this user. Unblock to send messages.');
+        } else {
+          toast.error('You have been blocked by this user. You cannot send messages.');
+        }
+        return;
+      }
+    }
+
+    const content = message.trim();
     const optimisticId = `pending-${Date.now()}`;
     setMessage('');
 
@@ -600,7 +724,35 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       toast.error('Failed to send message.');
       setMessage(content);
     }
-  }, [message, profile, selectedThreadId]);
+  }, [message, profile, selectedThreadId, blockedThreads]);
+
+  const handleUnblockUser = useCallback(async () => {
+    if (!profile?.id || !selectedThreadId) return;
+    setMenuOpen(false);
+
+    try {
+      const { error } = await supabase
+        .from('blocked_users')
+        .delete()
+        .match({ blocker_id: profile.id, blocked_id: selectedThreadId });
+
+      if (error) {
+        console.error('Unblock error:', JSON.stringify(error));
+        throw error;
+      }
+
+      setBlockedThreads((prev) => {
+        const next = { ...prev };
+        delete next[selectedThreadId];
+        return next;
+      });
+
+      toast.success('User unblocked.');
+    } catch (err) {
+      console.error('Failed to unblock user:', err);
+      toast.error('Failed to unblock user.');
+    }
+  }, [profile?.id, selectedThreadId]);
 
   return (
     <div className="pt-24 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -753,11 +905,11 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
                   </button>
                   <div className="h-px bg-white/5" />
                   <button
-                    onClick={handleBlockUser}
+                    onClick={selectedThreadBlockState?.blockedByMe ? handleUnblockUser : handleBlockUser}
                     className="w-full px-4 py-3 text-sm text-left text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-3"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-                    Block User
+                    {selectedThreadBlockState?.blockedByMe ? 'Unblock User' : 'Block User'}
                   </button>
                 </div>
               )}
@@ -767,13 +919,24 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
           {/* Messages */}
           <div
             ref={messagesContainerRef}
-            className="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col-reverse"
+            className="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col"
             onScroll={(e) => {
               const el = e.currentTarget;
               isAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
             }}
           >
             <div className="flex flex-col gap-6">
+              {selectedThreadBlockState?.blockedByMe ? (
+                <div className="sticky top-0 z-10 rounded-3xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
+                  You have blocked this user. Use the menu to unblock them if you want to resume messaging.
+                </div>
+              ) : selectedThreadBlockState?.blockedByThem ? (
+                <div className="sticky top-0 z-10 rounded-3xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
+                  You have been blocked by this user. You cannot send messages. 
+                  <span className="block font-semibold">You have been blocked.</span>
+                </div>
+              ) : null}
+
               {!selectedThread ? (
                 <div className="text-sm text-text-muted">Select a conversation to start chatting.</div>
               ) : loadingConversation ? (
@@ -831,7 +994,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
               />
               <button
                 type="submit"
-                disabled={!selectedThread || !message.trim()}
+                disabled={!selectedThread || !message.trim() || selectedThreadBlockState?.blockedByMe || selectedThreadBlockState?.blockedByThem}
                 className="bg-accent-teal hover:brightness-110 text-bg-base p-3 rounded-2xl transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Send className="w-5 h-5" />

@@ -57,7 +57,7 @@ export function MyCoursesPage() {
         title: enrollment.courses.title,
         mentor: enrollment.courses.profiles,
         progress: enrollment.progress_pct || 0,
-        status: enrollment.completed ? 'completed' : enrollment.progress_pct > 0 ? 'in-progress' : 'pending',
+        status: enrollment.completed ? 'completed' : enrollment.progress_pct > 0 ? 'pending' : 'in-progress',
         materials_count: enrollment.courses.modules_count || 0
       })) || [];
 

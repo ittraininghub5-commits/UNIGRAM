@@ -48,7 +48,7 @@ export default function LandingPage() {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent-teal/10 border border-accent-teal/20 shadow-[0_6px_20px_rgba(73,220,122,0.12)]"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-accent-teal animate-pulse" />
-            <span className="text-xs font-mono text-accent-teal tracking-wider uppercase">Now in Beta — Join 2,400+ learners</span>
+            <span className="text-xs font-mono text-accent-teal tracking-wider uppercase">Now in Beta — Join learners</span>
           </motion.div>
 
           <motion.h1
@@ -68,7 +68,7 @@ export default function LandingPage() {
             transition={{ delay: 0.2 }}
             className="text-lg text-text-secondary max-w-md leading-relaxed"
           >
-            Unigram bridges the gap between education, mentorship, and employability — combining short-form learning with verified credentials and trusted recommendations.
+            Unigram bridges the gap between education, mentorship, and collaboration — combining short-form learning with verified credentials and trusted recommendations.
           </motion.p>
 
           <motion.div
@@ -247,17 +247,17 @@ export default function LandingPage() {
         >
           <GapCard 
             number="01"
-            title="YouTube — No Credibility"
-            description="Anyone can post anything without verification. There's no way to determine if a mentor actually knows what they're teaching, and no verifiable proof of learning."
+            title="ONLINE STREAMING PLATFORMS — No Credibility"
+            description="Videos Might not align with subject courses. There's no way to determine if a mentor actually knows what they're teaching, and no verifiable proof of learning."
           />
           <GapCard 
             number="02"
-            title="LinkedIn — No Proof of Skill"
+            title="NETWORKING PLATFORMS  — No Proof of Skill"
             description="Recommendations are vague and lack substance. Certifications are self-reported with no verification. Recruiters cannot trust the authenticity of credentials."
           />
           <GapCard 
             number="03"
-            title="Udemy — No Real Relationships"
+            title="ONLINE LEARNING PLATFORMS     — No Real Relationships"
             description="Students complete courses from faceless platforms. No personal mentor-student interaction. Courses are transactional; mentors don't know student names."
           />
         </motion.div>
@@ -405,7 +405,7 @@ export default function LandingPage() {
               "Watch educational short videos",
               "Enroll in structured courses",
               "Earn mentor-signed certifications",
-              "Request job recommendations"
+              "Collaborate with peers and mentors"
             ]}
           />
           <RoleCard 
