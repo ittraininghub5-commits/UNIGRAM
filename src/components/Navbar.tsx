@@ -307,20 +307,31 @@ function Navbar({ user, profile }: NavbarProps) {
 
   const appLinks = useMemo(() => {
     if (!user) return [];
+    const isMentor = isMentorRole(profile?.role);
     const links = [
       { to: '/feed',          label: 'Feed',          icon: Compass        },
       { to: '/search',        label: 'Search',        icon: Search         },
       { to: '/messages',      label: 'Messages',      icon: MessageSquare  },
       { to: '/courses',       label: 'Courses',       icon: BookOpen       },
       { to: '/collab',        label: 'Collab',        icon: Handshake      },
-      { to: '/certificates',  label: 'Certificates',  icon: FileCheck      },
-      { to: '/games',         label: 'Games',         icon: Gamepad2       },
-      { to: '/notifications', label: 'Notifications', icon: Bell           },
-      { to: '/settings',      label: 'Settings',      icon: Settings       },
     ];
-    if (isMentorRole(profile?.role)) {
-      links.splice(3, 0, { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard });
+    
+    // Add student-only links
+    if (!isMentor) {
+      links.push({ to: '/certificates',  label: 'Certificates',  icon: FileCheck      });
+      links.push({ to: '/games',         label: 'Games',         icon: Gamepad2       });
     }
+    
+    // Add mentor-only links
+    if (isMentor) {
+      links.splice(3, 0, { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard });
+      links.push({ to: '/issued-certificates', label: 'Issued Certs', icon: FileCheck });
+      links.push({ to: '/pending-requests',    label: 'Pending Requests', icon: Bell });
+      links.push({ to: '/new-course',          label: 'New Course', icon: BookOpen });
+    }
+    
+    links.push({ to: '/notifications', label: 'Notifications', icon: Bell           });
+    links.push({ to: '/settings',      label: 'Settings',      icon: Settings       });
     links.push({ to: `/profile/${user.id}`, label: 'Profile', icon: UserIcon });
     return links;
   }, [profile?.role, user]);

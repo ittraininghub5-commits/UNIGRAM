@@ -40,6 +40,11 @@ const SynapseConnectPage     = lazy(() => import('@/src/pages/SynapseConnectPage
 const SynapseAchievementsPage = lazy(() => import('@/src/pages/SynapseAchievementsPage'));
 const SynapseProfilePage     = lazy(() => import('@/src/pages/SynapseProfilePage'));
 
+// Mentor-only pages
+const IssuedCertificatesPage = lazy(() => import('@/src/pages/IssuedCertificatesPage'));
+const PendingRequestsPage    = lazy(() => import('@/src/pages/PendingRequestsPage'));
+const NewCoursePage          = lazy(() => import('@/src/pages/NewCoursePage'));
+
 // ─── Suspense fallback ────────────────────────────────────────────────────────
 // Shown while any lazy page chunk is downloading.
 function PageLoader() {
@@ -260,6 +265,11 @@ export default function App() {
                 <Route path="/synapse/connect"       element={user ? <SynapseConnectPage profile={profile} />              : <Navigate to="/auth" />} />
                 <Route path="/synapse/achievements"  element={user ? <SynapseAchievementsPage profile={profile} />         : <Navigate to="/auth" />} />
                 <Route path="/synapse/profile/:id?"  element={user ? <SynapseProfilePage currentProfile={profile} />       : <Navigate to="/auth" />} />
+
+                {/* Mentor-only pages */}
+                <Route path="/issued-certificates"  element={isMentorRole(profile?.role) ? <IssuedCertificatesPage />      : <Navigate to="/feed" />} />
+                <Route path="/pending-requests"     element={isMentorRole(profile?.role) ? <PendingRequestsPage />         : <Navigate to="/feed" />} />
+                <Route path="/new-course"           element={isMentorRole(profile?.role) ? <NewCoursePage />               : <Navigate to="/feed" />} />
 
                 {/* Catch-all */}
                 <Route path="*" element={<Navigate to="/" />} />
