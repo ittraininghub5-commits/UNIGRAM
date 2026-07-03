@@ -66,7 +66,16 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
   const isAtBottom = useRef(true);
   const profileIdRef = useRef<string | null>(null);
   profileIdRef.current = profile?.id ?? null;
-  const deletedThreadIds = useRef<Set<string>>(new Set());
+
+  // Persist deleted thread IDs in sessionStorage so they survive page refreshes
+  const deletedThreadIds = useRef<Set<string>>(new Set(
+    JSON.parse(sessionStorage.getItem('deletedThreadIds') || '[]')
+  ));
+
+  const persistDeletedThreadId = useCallback((threadId: string) => {
+    deletedThreadIds.current.add(threadId);
+    sessionStorage.setItem('deletedThreadIds', JSON.stringify([...deletedThreadIds.current]));
+  }, []);
 
   const preferredThreadId = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -207,6 +216,9 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
     const partnerId = msg.from_id === userId ? msg.to_id : msg.from_id;
     if (!partnerId) return;
+
+    // Don't apply messages from deleted/blocked threads
+    if (deletedThreadIds.current.has(partnerId)) return;
 
     setConversationByThread((prev) => {
       const existing = prev[partnerId] || [];
@@ -445,7 +457,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
 
   const handleDeleteChat = useCallback(async () => {
     if (!profile?.id || !selectedThreadId) return;
-    const threadId = selectedThreadId; // snapshot before any state changes
+    const threadId = selectedThreadId;
     setMenuOpen(false);
 
     try {
@@ -461,8 +473,8 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
         throw error;
       }
 
-      // Mark as deleted so refresh interval doesn't reload it
-      deletedThreadIds.current.add(threadId);
+      // Persist deleted thread ID so page refreshes don't reload it
+      persistDeletedThreadId(threadId);
 
       setConversationByThread((prev) => {
         const next = { ...prev };
@@ -476,11 +488,11 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       console.error('Failed to delete chat:', err);
       toast.error('Failed to delete chat.');
     }
-  }, [profile?.id, selectedThreadId]);
+  }, [profile?.id, selectedThreadId, persistDeletedThreadId]);
 
   const handleBlockUser = useCallback(async () => {
     if (!profile?.id || !selectedThreadId) return;
-    const threadId = selectedThreadId; // snapshot before any state changes
+    const threadId = selectedThreadId;
     setMenuOpen(false);
 
     try {
@@ -506,8 +518,8 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
         // Non-fatal — user is still blocked even if message cleanup fails
       }
 
-      // Mark as deleted so refresh interval doesn't reload it
-      deletedThreadIds.current.add(threadId);
+      // Persist deleted thread ID so page refreshes don't reload it
+      persistDeletedThreadId(threadId);
 
       setConversationByThread((prev) => {
         const next = { ...prev };
@@ -521,7 +533,7 @@ export default function MessagesPage({ profile }: MessagesPageProps) {
       console.error('Failed to block user:', err);
       toast.error('Failed to block user.');
     }
-  }, [profile?.id, selectedThreadId]);
+  }, [profile?.id, selectedThreadId, persistDeletedThreadId]);
 
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
