@@ -1,0 +1,22 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "theme-mode",
+          "value": "light"
+        },
+        {
+          "name": "sb-yemcsitlkpdvaiwwbwvt-auth-token",
+          "value": "{\"access_token\":\"eyJhbGciOiJFUzI1NiIsImtpZCI6IjIwNTI4YTY0LTE2MDctNDU5NS04OTAyLTIyZDJkZmI4ZTRhZCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3llbWNzaXRsa3BkdmFpd3did3Z0LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI5Mzg1YzI1NS01ZTdmLTQxMDYtOTk0Ny00NDQ2NDIwN2Q0NWMiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzg0MzkxNjc4LCJpYXQiOjE3ODQzODgwNzgsImVtYWlsIjoidGVzdC11bmlncmFtQGV4YW1wbGUuY29tIiwicGhvbmUiOiIiLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJlbWFpbCIsInByb3ZpZGVycyI6WyJlbWFpbCJdfSwidXNlcl9tZXRhZGF0YSI6eyJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZnVsbF9uYW1lIjoiVW5pZ3JhbSBUZXN0IFVzZXIifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc4NDM4ODA3OH1dLCJzZXNzaW9uX2lkIjoiNTA4MGZjNjItOTY3Ny00MDI3LTlhNzYtMTAyYWY5Nzg2YmJmIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.3A0rsQCkV98HluaG9vW4VlPVnp5wFlgtxl26OVhuXVkiKS0trf9JP_6cGWzxqO5pCuxufWgV_huuGeDHEKoxJQ\",\"token_type\":\"bearer\",\"expires_in\":3600,\"expires_at\":1784391678,\"refresh_token\":\"5c7xcphhqpyi\",\"user\":{\"id\":\"9385c255-5e7f-4106-9947-44464207d45c\",\"aud\":\"authenticated\",\"role\":\"authenticated\",\"email\":\"test-unigram@example.com\",\"email_confirmed_at\":\"2026-07-18T15:20:46.092107Z\",\"phone\":\"\",\"confirmed_at\":\"2026-07-18T15:20:46.092107Z\",\"last_sign_in_at\":\"2026-07-18T15:21:18.310505161Z\",\"app_metadata\":{\"provider\":\"email\",\"providers\":[\"email\"]},\"user_metadata\":{\"email_verified\":true,\"full_name\":\"Unigram Test User\"},\"identities\":[{\"identity_id\":\"4d68df46-014a-4e51-a50e-a7d7d8a77479\",\"id\":\"9385c255-5e7f-4106-9947-44464207d45c\",\"user_id\":\"9385c255-5e7f-4106-9947-44464207d45c\",\"identity_data\":{\"email\":\"test-unigram@example.com\",\"email_verified\":false,\"phone_verified\":false,\"sub\":\"9385c255-5e7f-4106-9947-44464207d45c\"},\"provider\":\"email\",\"last_sign_in_at\":\"2026-07-18T15:14:02.597922Z\",\"created_at\":\"2026-07-18T15:14:02.597976Z\",\"updated_at\":\"2026-07-18T15:14:02.597976Z\",\"email\":\"test-unigram@example.com\"}],\"created_at\":\"2026-07-18T15:14:02.573409Z\",\"updated_at\":\"2026-07-18T15:21:18.316936Z\",\"is_anonymous\":false},\"weak_password\":null}"
+        },
+        {
+          "name": "theme-accent",
+          "value": "yellow"
+        }
+      ]
+    }
+  ]
+}

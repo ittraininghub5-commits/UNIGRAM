@@ -1,0 +1,109 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------
+  # 1. Build + unit/integration tests — runs on every push and PR
+  # ---------------------------------------------------------------
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit + integration tests (Vitest)
+        run: npm run test:unit
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Build app
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # ---------------------------------------------------------------
+  # 2. Deploy to STAGING — only on push to main, after tests pass
+  # ---------------------------------------------------------------
+  deploy-staging:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://unigram-staging.onrender.com
+    steps:
+      - name: Trigger Render staging deploy
+        run: |
+          curl -X POST "${{ secrets.RENDER_STAGING_DEPLOY_HOOK }}"
+
+      - name: Wait for staging to come up
+        run: sleep 60
+
+  # ---------------------------------------------------------------
+  # 3. End-to-end tests against STAGING (Playwright)
+  # ---------------------------------------------------------------
+  e2e-staging:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests against staging
+        run: npm run test:e2e
+        env:
+          E2E_BASE_URL: https://unigram-staging.onrender.com
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  # ---------------------------------------------------------------
+  # 4. Deploy to PRODUCTION — requires manual approval
+  #    (configure this in GitHub: Settings → Environments →
+  #    "production" → Required reviewers)
+  # ---------------------------------------------------------------
+  deploy-production:
+    needs: e2e-staging
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://unigram.example.com
+    steps:
+      - name: Trigger Render production deploy
+        run: |
+          curl -X POST "${{ secrets.RENDER_PRODUCTION_DEPLOY_HOOK }}"

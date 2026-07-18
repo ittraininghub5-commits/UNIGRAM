@@ -27,6 +27,9 @@ const CertificatesPage       = lazy(() => import('@/src/pages/Certificatespage')
 const QuizPage               = lazy(() => import('@/src/pages/QuizPage'));
 const NotificationsPage      = lazy(() => import('@/src/pages/NotificationsPage'));
 const SettingsPage           = lazy(() => import('@/src/pages/SettingsPage'));
+const IssuedCertificatesPage = lazy(() => import('@/src/pages/IssuedCertificatesPage'));
+const NewCoursePage          = lazy(() => import('@/src/pages/NewCoursePage'));
+const PendingRequestsPage    = lazy(() => import('@/src/pages/PendingRequestsPage'));
 
 // Games — GamesPage.css and GamePage.css are imported inside these modules,
 // so they are no longer shipped to every route globally.
@@ -233,6 +236,11 @@ export default function App() {
                 <Route path="/courses"      element={user ? <MyCoursesPage />   : <Navigate to="/auth" />} />
                 <Route path="/certificates" element={user ? <CertificatesPage />: <Navigate to="/auth" />} />
                 <Route path="/quiz"         element={user ? <QuizPage />        : <Navigate to="/auth" />} />
+
+                {/* Mentor course management & approvals */}
+                <Route path="/new-course"          element={isMentorRole(profile?.role) ? <NewCoursePage />          : <Navigate to="/feed" />} />
+                <Route path="/issued-certificates" element={isMentorRole(profile?.role) ? <IssuedCertificatesPage /> : <Navigate to="/feed" />} />
+                <Route path="/In-Progress"         element={isMentorRole(profile?.role) ? <PendingRequestsPage />    : <Navigate to="/feed" />} />
 
                 {/* Notifications / Settings */}
                 <Route path="/notifications"     element={user ? <NotificationsPage /> : <Navigate to="/auth" />} />
