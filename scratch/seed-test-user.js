@@ -12,9 +12,14 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.');
+if (!supabaseUrl) {
+  console.error('Missing VITE_SUPABASE_URL environment variable.');
   process.exit(1);
+}
+
+if (!supabaseServiceKey) {
+  console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY is missing. Skipping test user database seeding. E2E tests will fallback to client-side auth/registration.');
+  process.exit(0);
 }
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
