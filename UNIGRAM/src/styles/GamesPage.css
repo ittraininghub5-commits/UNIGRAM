@@ -1,0 +1,659 @@
+/* ============================================================
+   Games Page Styling - Matching Unigram Design System
+   ============================================================ */
+
+.games-page {
+  min-height: 100vh;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  padding: 6rem 2rem 2rem;
+  font-family: inherit;
+}
+
+.games-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   Header Section
+   ============================================================ */
+
+.games-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding: 2rem 0;
+}
+
+.games-header h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ff6b35 0%, #ffd166 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+  letter-spacing: -1px;
+}
+
+.games-header p {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ============================================================
+   Player Rank Section
+   ============================================================ */
+
+.player-rank-section {
+  margin-bottom: 3rem;
+  display: flex;
+  justify-content: center;
+}
+
+.rank-card {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.14) 0%, rgba(255, 209, 102, 0.08) 100%);
+  border: 1px solid rgba(255, 107, 53, 0.35);
+  border-radius: 16px;
+  min-width: 400px;
+  max-width: 500px;
+  backdrop-filter: blur(10px);
+}
+
+.rank-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #ff6b35 0%, #ffd166 100%);
+  border-radius: 24px;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #040A0A;
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+}
+
+.rank-info {
+  flex: 1;
+}
+
+.rank-info h3 {
+  font-size: 1rem;
+  color: #ff6b35;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.rank-info p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.rank-best {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.best-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+.best-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ff6b35;
+}
+
+/* ============================================================
+   Games Grid (2x2 Layout)
+   ============================================================ */
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+  margin-bottom: 4rem;
+}
+
+.game-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 2rem;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+/* Game Card Gradient Variants */
+.game-card.gradient-1 {
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.16) 0%, rgba(255, 107, 53, 0.05) 100%);
+  border-color: rgba(255, 107, 53, 0.42);
+}
+
+.game-card.gradient-2 {
+  background: linear-gradient(135deg, rgba(255, 209, 102, 0.17) 0%, rgba(255, 209, 102, 0.06) 100%);
+  border-color: rgba(255, 209, 102, 0.45);
+}
+
+.game-card.gradient-3 {
+  background: linear-gradient(135deg, rgba(58, 134, 255, 0.15) 0%, rgba(58, 134, 255, 0.06) 100%);
+  border-color: rgba(58, 134, 255, 0.42);
+}
+
+.game-card.gradient-4 {
+  background: linear-gradient(135deg, rgba(46, 196, 182, 0.16) 0%, rgba(46, 196, 182, 0.06) 100%);
+  border-color: rgba(46, 196, 182, 0.42);
+}
+
+.game-card:hover {
+  transform: translateY(-8px);
+  border-width: 2px;
+}
+
+.game-card.gradient-1:hover {
+  border-color: rgba(255, 107, 53, 0.72);
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.25) 0%, rgba(255, 107, 53, 0.1) 100%);
+  box-shadow: 0 20px 40px rgba(255, 107, 53, 0.24);
+}
+
+.game-card.gradient-2:hover {
+  border-color: rgba(255, 209, 102, 0.76);
+  background: linear-gradient(135deg, rgba(255, 209, 102, 0.24) 0%, rgba(255, 209, 102, 0.1) 100%);
+  box-shadow: 0 20px 40px rgba(255, 209, 102, 0.2);
+}
+
+.game-card.gradient-3:hover {
+  border-color: rgba(58, 134, 255, 0.76);
+  background: linear-gradient(135deg, rgba(58, 134, 255, 0.25) 0%, rgba(58, 134, 255, 0.1) 100%);
+  box-shadow: 0 20px 40px rgba(58, 134, 255, 0.22);
+}
+
+.game-card.gradient-4:hover {
+  border-color: rgba(46, 196, 182, 0.76);
+  background: linear-gradient(135deg, rgba(46, 196, 182, 0.25) 0%, rgba(46, 196, 182, 0.1) 100%);
+  box-shadow: 0 20px 40px rgba(46, 196, 182, 0.22);
+}
+
+.game-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.game-emoji {
+  font-size: 4rem;
+  line-height: 1;
+  animation: float 3s ease-in-out infinite;
+}
+
+.game-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.game-description {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.play-button {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #ff6b35 0%, #ffd166 100%);
+  color: #040A0A;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.5px;
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.24);
+}
+
+.play-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 32px rgba(255, 107, 53, 0.32);
+}
+
+.play-button:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================
+   Leaderboard Section
+   ============================================================ */
+
+.leaderboard-section {
+  padding: 2rem;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+}
+
+.leaderboard-section h2 {
+  font-size: 1.8rem;
+  color: var(--text-primary);
+  margin-top: 0;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.leaderboard-section h2::before {
+  content: '🏆';
+  font-size: 1.5rem;
+}
+
+.leaderboard-container {
+  min-height: 300px;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.leaderboard-item {
+  display: grid;
+  grid-template-columns: 60px 1fr 120px;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, rgba(73, 220, 122, 0.05) 0%, rgba(34, 242, 239, 0.05) 100%);
+  border: 1px solid rgba(73, 220, 122, 0.15);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.leaderboard-item:hover {
+  background: linear-gradient(135deg, rgba(73, 220, 122, 0.1) 0%, rgba(34, 242, 239, 0.1) 100%);
+  border-color: rgba(73, 220, 122, 0.3);
+  transform: translateX(4px);
+}
+
+.rank-column {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.leaderboard-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #49DC7A;
+}
+
+.player-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.player-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.game-tag {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.score-column {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.score-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #22F2EF;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 1rem;
+  text-align: center;
+}
+
+.empty-state p:first-child {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.empty-state p:last-child {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+
+/* ============================================================
+   Responsive Design
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .games-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rank-card {
+    min-width: auto;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .games-page {
+    padding: 5rem 1rem 1rem;
+  }
+
+  .games-header h1 {
+    font-size: 2rem;
+  }
+
+  .games-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .game-card {
+    min-height: 250px;
+    padding: 1.5rem;
+  }
+
+  .game-emoji {
+    font-size: 3rem;
+  }
+
+  .game-name {
+    font-size: 1.25rem;
+  }
+
+  .leaderboard-item {
+    grid-template-columns: 50px 1fr 100px;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .rank-card {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+    min-width: unset;
+  }
+
+  .rank-badge {
+    width: 60px;
+    height: 60px;
+    font-size: 2rem;
+  }
+
+  .rank-best {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .games-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .games-header p {
+    font-size: 0.9rem;
+  }
+
+  .game-emoji {
+    font-size: 2.5rem;
+  }
+
+  .game-name {
+    font-size: 1rem;
+  }
+
+  .game-description {
+    font-size: 0.85rem;
+  }
+
+  .leaderboard-item {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .score-column {
+    justify-content: flex-start;
+  }
+
+  .player-column {
+    order: 1;
+  }
+
+  .rank-column {
+    order: 2;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .score-column {
+    order: 3;
+  }
+}
+
+/* ============================================================
+   Humanized Visual Polish
+   ============================================================ */
+
+.games-page {
+  background-image:
+    radial-gradient(circle at 12% 16%, rgba(34, 242, 239, 0.1) 0%, transparent 28%),
+    radial-gradient(circle at 84% 78%, rgba(201, 35, 248, 0.1) 0%, transparent 34%);
+}
+
+.games-header {
+  margin-bottom: 3.5rem;
+}
+
+.games-header h1 {
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.games-header h1::after {
+  content: "";
+  display: block;
+  width: 84px;
+  height: 3px;
+  margin: 1rem auto 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(73, 220, 122, 0.9) 0%, rgba(34, 242, 239, 0.9) 60%, rgba(201, 35, 248, 0.9) 100%);
+}
+
+.games-header p {
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.rank-card {
+  border-radius: 22px;
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 34%),
+    linear-gradient(130deg, rgba(73, 220, 122, 0.16) 0%, rgba(34, 242, 239, 0.08) 52%, rgba(201, 35, 248, 0.08) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 18px 45px rgba(4, 10, 10, 0.48);
+}
+
+.rank-badge {
+  border-radius: 28px;
+  box-shadow: 0 14px 34px rgba(73, 220, 122, 0.35);
+}
+
+.rank-info h3,
+.best-label {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.best-value {
+  color: #22F2EF;
+}
+
+.games-grid {
+  gap: 1.6rem;
+}
+
+.game-card {
+  border-radius: 22px;
+  border-width: 1px;
+  transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
+.game-card:nth-child(odd) {
+  transform: translateY(2px) rotate(-0.25deg);
+}
+
+.game-card:nth-child(even) {
+  transform: translateY(-2px) rotate(0.25deg);
+}
+
+.game-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(175deg, rgba(255, 255, 255, 0.16) 0%, transparent 34%);
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+.game-card.gradient-1,
+.game-card.gradient-2,
+.game-card.gradient-3,
+.game-card.gradient-4 {
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.03) 0%, transparent 40%),
+    linear-gradient(138deg, rgba(73, 220, 122, 0.14) 0%, rgba(34, 242, 239, 0.1) 54%, rgba(201, 35, 248, 0.11) 100%);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.game-card:hover {
+  transform: translateY(-7px) rotate(0deg);
+  border-color: rgba(34, 242, 239, 0.65);
+  box-shadow: 0 22px 48px rgba(4, 10, 10, 0.46);
+}
+
+.game-name {
+  line-height: 1.15;
+}
+
+.game-description {
+  color: rgba(255, 255, 255, 0.74);
+  max-width: 28ch;
+}
+
+.play-button {
+  border-radius: 999px;
+  background: linear-gradient(120deg, #49DC7A 0%, #22F2EF 55%, #C923F8 100%);
+  box-shadow: 0 12px 30px rgba(73, 220, 122, 0.22);
+}
+
+.play-button:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.leaderboard-section {
+  border-radius: 22px;
+  background:
+    linear-gradient(142deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 30%),
+    linear-gradient(130deg, rgba(17, 34, 34, 0.9) 0%, rgba(22, 49, 49, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 16px 42px rgba(4, 10, 10, 0.45);
+}
+
+.leaderboard-item {
+  border-radius: 14px;
+  background: linear-gradient(128deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0) 33%),
+    linear-gradient(135deg, rgba(34, 242, 239, 0.1) 0%, rgba(201, 35, 248, 0.09) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 3px solid rgba(73, 220, 122, 0.45);
+}
+
+.leaderboard-item:nth-child(even) {
+  border-left-color: rgba(34, 242, 239, 0.5);
+}
+
+.leaderboard-item:hover {
+  background: linear-gradient(128deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 33%),
+    linear-gradient(135deg, rgba(73, 220, 122, 0.16) 0%, rgba(34, 242, 239, 0.14) 58%, rgba(201, 35, 248, 0.12) 100%);
+}
+
+.game-tag {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.score-value {
+  color: #49DC7A;
+}
